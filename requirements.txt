@@ -1,0 +1,3 @@
+discord
+PyGithub==1.59.1
+pre-commit==2.20.0
