@@ -169,7 +169,7 @@ class ReportsCog(commands.Cog):
         first_date = datetime.date(2023, 9, 24)
         today = datetime.date.today()
         week = (today - first_date).days // 7 + 1
-        column = week + self.TOTAL_COLUMNS
+        column = week + self.TOTAL_COLUMNS - 1  # -1 because the week has now passed
 
         # Add a "N" to all rows that do not currently have a value
         names = await main_worksheet.col_values(1)
