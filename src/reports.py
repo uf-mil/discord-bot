@@ -166,7 +166,7 @@ class ReportsCog(commands.Cog):
             f"{self.bot.egn4912_role.mention}\nHey everyone! Friendly reminder to submit your weekly progress reports by **tomorrow night at 11:59pm**. You can submit your reports in the {self.bot.reports_channel.mention} channel. If you have any questions, please contact your leader. Thank you!",
         )
 
-    @run_on_weekday(calendar.SATURDAY, 19, 2)
+    @run_on_weekday(calendar.SATURDAY, 12, 0)
     async def individual_reminder(self):
         # Get all members who have not completed reports for the week
         main_worksheet = await self.bot.sh.get_worksheet(0)
