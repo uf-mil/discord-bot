@@ -3,6 +3,7 @@ from __future__ import annotations
 import calendar
 import datetime
 import itertools
+import logging
 from typing import TYPE_CHECKING
 
 import discord
@@ -13,6 +14,9 @@ from .helper import run_on_weekday
 
 if TYPE_CHECKING:
     from .bot import MILBot
+
+
+logger = logging.getLogger(__name__)
 
 
 class ReportsModal(discord.ui.Modal):
@@ -153,6 +157,7 @@ class ReportsCog(commands.Cog):
         self._tasks = set()
         self._tasks.add(self.bot.loop.create_task(self.post_reminder()))
         self._tasks.add(self.bot.loop.create_task(self.add_no()))
+        self._tasks.add(self.bot.loop.create_task(self.individual_reminder()))
 
     @run_on_weekday(calendar.FRIDAY, 12, 0)
     async def post_reminder(self):
@@ -160,6 +165,38 @@ class ReportsCog(commands.Cog):
         return await general_channel.send(
             f"{self.bot.egn4912_role.mention}\nHey everyone! Friendly reminder to submit your weekly progress reports by **tomorrow night at 11:59pm**. You can submit your reports in the {self.bot.reports_channel.mention} channel. If you have any questions, please contact your leader. Thank you!",
         )
+
+    @run_on_weekday(calendar.SATURDAY, 19, 2)
+    async def individual_reminder(self):
+        # Get all members who have not completed reports for the week
+        main_worksheet = await self.bot.sh.get_worksheet(0)
+        first_date = datetime.date(2023, 9, 24)
+        today = datetime.date.today()
+        week = (today - first_date).days // 7 + 1
+        column = week + self.TOTAL_COLUMNS
+
+        names = await main_worksheet.col_values(1)
+        discord_ids = await main_worksheet.col_values(5)
+        col_vals = await main_worksheet.col_values(column)
+        students = list(itertools.zip_longest(names, discord_ids, col_vals))
+
+        deadline_tonight = datetime.datetime.combine(
+            datetime.date.today(),
+            datetime.time(23, 59, 59),
+        )
+        for name, discord_id, value in students:
+            member = self.bot.active_guild.get_member_named(str(discord_id))
+            first_name = str(name).split(" ")[0]
+            if member and value != "Y":
+                try:
+                    await member.send(
+                        f"Hey **{first_name}**! It's your friendly uf-mil-bot here. I noticed you haven't submitted your weekly MIL report yet. Please submit it in the {self.bot.reports_channel.mention} channel by {discord.utils.format_dt(deadline_tonight, 't')} tonight. Thank you!",
+                    )
+                    logger.info(f"Sent individual report reminder to {member}.")
+                except discord.Forbidden:
+                    logger.info(
+                        f"Could not send individual report reminder to {member}.",
+                    )
 
     @run_on_weekday(calendar.SUNDAY, 0, 0)
     async def add_no(self):
