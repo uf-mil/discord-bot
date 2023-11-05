@@ -144,6 +144,13 @@ class ReportsView(discord.ui.View):
         custom_id="reports_view:submit",
     )
     async def submit(self, interaction: discord.Interaction, _: discord.ui.Button):
+        # If button is triggered on Sunday or Monday, send error message
+        if datetime.datetime.today().weekday() in [6, 0]:
+            return await interaction.response.send_message(
+                ":x: Weekly reports should be submitted between Tuesday and Saturday. While occasional exceptions can be made if you miss a week—simply inform your team lead—this should not become a regular occurrence. Be aware that the submission window closes promptly at 11:59pm on Saturday.",
+                ephemeral=True,
+            )
+
         # Send modal where user fills out report
         await interaction.response.send_modal(ReportsModal(self.bot))
 
