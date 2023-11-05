@@ -4,6 +4,7 @@ import logging.handlers
 import random
 import traceback
 
+import aiohttp
 import discord
 import gspread_asyncio
 from discord.ext import commands, tasks
@@ -63,6 +64,9 @@ class MILBot(commands.Bot):
     # Roles
     egn4912_role: discord.Role
 
+    # Internal
+    session: aiohttp.ClientSession
+
     def __init__(self):
         super().__init__(
             command_prefix="!",
@@ -76,6 +80,10 @@ class MILBot(commands.Bot):
         if not self.change_status.is_running():
             self.change_status.start()
         await self.fetch_vars()
+
+    async def close(self):
+        await self.session.close()
+        await super().close()
 
     @tasks.loop(hours=1)
     async def change_status(self):
@@ -240,7 +248,8 @@ async def main():
     logger = logging.getLogger()
     logger.addHandler(RichHandler(rich_tracebacks=True))
 
-    async with bot:
+    async with bot, aiohttp.ClientSession() as session:
+        bot.session = session
         await bot.start(token=DISCORD_TOKEN)
 
 
