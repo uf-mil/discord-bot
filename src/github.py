@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import json
 import logging
 import re
 from typing import TYPE_CHECKING, Any, Literal
@@ -40,7 +41,7 @@ class GitHub:
         *,
         method: Literal["GET", "POST"] = "GET",
         extra_headers: dict[str, str] | None = None,
-        data: dict[str, Any] | None = None,
+        data: dict[str, Any] | str | None = None,
     ):
         """
         Fetches a URL with the given method and headers.
@@ -52,8 +53,16 @@ class GitHub:
         }
         if extra_headers:
             headers.update(extra_headers)
-        async with self.bot.session.request(method, url, data=data) as response:
-            response.raise_for_status()
+        async with self.bot.session.request(
+            method,
+            url,
+            headers=headers,
+            data=data,
+        ) as response:
+            if not response.ok:
+                logger.error(
+                    f"Error fetching GitHub url {url}: {await response.json()}",
+                )
             return await response.json()
 
     async def get_repo(self, repo_name: str) -> Repository:
@@ -101,11 +110,12 @@ class GitHub:
         }
         if team_id:
             data["team_ids"] = [team_id]
+        str_data = json.dumps(data)
         return await self.fetch(
             url,
             method="POST",
             extra_headers=extra_headers,
-            data=data,
+            data=str_data,
         )
 
     async def get_team(self, org_name: str, team_name: str) -> OrganizationTeam:
@@ -120,7 +130,6 @@ class GitHubCog(commands.Cog):
             auth_token=GITHUB_TOKEN,
             bot=bot,
         )
-        self.mil_repo = self.github.get_repo("uf-mil/mil")
 
     async def get_commit(self, commit_hash: str) -> discord.Embed | None:
         logging.info(f"Getting commit info for hash {commit_hash}...")
