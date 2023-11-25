@@ -7,7 +7,8 @@ import traceback
 import aiohttp
 import discord
 import gspread_asyncio
-from discord.ext import commands, tasks
+from discord.ext import commands
+from discord.ext import tasks as ext_tasks
 from google.auth import crypt
 from google.oauth2.service_account import Credentials
 from rich.logging import RichHandler
@@ -22,6 +23,7 @@ from .env import (
 )
 from .reports import ReportsView
 from .roles import MechanicalRolesView, TeamRolesView
+from .tasks import TaskManager
 from .welcome import WelcomeView
 
 
@@ -56,6 +58,7 @@ class MILBot(commands.Bot):
     # MIL server ref
     active_guild: discord.Guild
     # Channels
+    leaders_channel: discord.TextChannel
     leave_channel: discord.TextChannel
     general_channel: discord.TextChannel
     reports_channel: discord.TextChannel
@@ -63,9 +66,12 @@ class MILBot(commands.Bot):
     loading_emoji: str
     # Roles
     egn4912_role: discord.Role
+    leaders_role: discord.Role
+    sys_leads_role: discord.Role
 
     # Internal
     session: aiohttp.ClientSession
+    tasks: TaskManager
 
     def __init__(self):
         super().__init__(
@@ -73,6 +79,7 @@ class MILBot(commands.Bot):
             case_insensitive=True,
             intents=intents,
         )
+        self.tasks = TaskManager()
 
     async def on_ready(self):
         print("Logged on as", self.user)
@@ -85,7 +92,7 @@ class MILBot(commands.Bot):
         await self.session.close()
         await super().close()
 
-    @tasks.loop(hours=1)
+    @ext_tasks.loop(hours=1)
     async def change_status(self):
         activities: list[discord.Activity] = [
             discord.Activity(type=discord.ActivityType.watching, name="ROS tutorials"),
@@ -146,6 +153,7 @@ class MILBot(commands.Bot):
             "src.roles",
             "src.welcome",
             "src.reports",
+            "src.leaders",
         )
         for i, extension in enumerate(extensions):
             try:
@@ -195,6 +203,13 @@ class MILBot(commands.Bot):
         assert isinstance(reports_channel, discord.TextChannel)
         self.reports_channel = reports_channel
 
+        leaders_channel = discord.utils.get(
+            self.active_guild.text_channels,
+            name="leads",
+        )
+        assert isinstance(leaders_channel, discord.TextChannel)
+        self.leaders_channel = leaders_channel
+
         # Roles
         egn4912_role = discord.utils.get(
             self.active_guild.roles,
@@ -202,6 +217,20 @@ class MILBot(commands.Bot):
         )
         assert isinstance(egn4912_role, discord.Role)
         self.egn4912_role = egn4912_role
+
+        leaders_role = discord.utils.get(
+            self.active_guild.roles,
+            name="Leaders",
+        )
+        assert isinstance(leaders_role, discord.Role)
+        self.leaders_role = leaders_role
+
+        sys_leads_role = discord.utils.get(
+            self.active_guild.roles,
+            name="Systems Leadership",
+        )
+        assert isinstance(sys_leads_role, discord.Role)
+        self.sys_leads_role = sys_leads_role
 
     async def on_message(self, message):
         # don't respond to ourselves
