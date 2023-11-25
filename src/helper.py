@@ -11,7 +11,23 @@ logger = logging.getLogger(__name__)
 
 # Write a decorator which runs an async function the next instance of a weekday
 # at a specific time
-def run_on_weekday(day: int, hour: int, minute: int):
+def run_on_weekday(
+    day: int,
+    hour: int,
+    minute: int,
+    shift: datetime.timedelta | None = None,
+):
+    """
+    Runs the decorated function on the next instance of the specified weekday.
+
+    Arguments:
+        day (int): The day of the week to run the function on.
+        hour (int): The hour of the day to run the function on.
+        minute (int): The minute of the hour to run the function on.
+        shift (datetime.timedelta, optional): The amount of time to shift the
+            scheduled time by. If provided, the shift is added to the default time.
+            Defaults to None.
+    """
     _tasks = set()
 
     def decorator(func: Callable[..., Coroutine[Any, Any, T]]):  # type: ignore
@@ -27,6 +43,8 @@ def run_on_weekday(day: int, hour: int, minute: int):
                 second=0,
                 microsecond=0,
             )
+            if shift:
+                next_time += shift
             if now > next_time:
                 next_time += datetime.timedelta(days=7)
             logger.info(f"Scheduling {func.__name__} to run at: {next_time}")
