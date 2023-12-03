@@ -12,6 +12,7 @@ from discord.ext import commands
 
 from .env import LEADERS_MEETING_NOTES_URL, LEADERS_MEETING_URL
 from .helper import run_on_weekday
+from .views import MILBotView
 
 if TYPE_CHECKING:
     from .bot import MILBot
@@ -41,7 +42,7 @@ class Leaders(commands.Cog):
             description=f"Don't forget to attend the leaders meeting tonight at {discord.utils.format_dt(meeting_time, 't')} today! To help the meeting proceed efficiently, **all leaders** from **each team** should fill out the meeting notes for tonight's meeting **ahead of the meeting time**. Please include:\n* What has been completed over the past week\n* Plans for this upcoming week\n* Challenges your team faces\n\nThank you! If you have any questions, please ping {self.bot.sys_leads_role.mention}.",
             color=discord.Color.teal(),
         )
-        view = discord.ui.View()
+        view = MILBotView()
         view.add_item(
             discord.ui.Button(label="Meeting Notes", url=LEADERS_MEETING_NOTES_URL),
         )
@@ -63,7 +64,7 @@ class Leaders(commands.Cog):
             description="Who's excited to meet?? 🙋 Please arrive on time so we can promptly begin the meeting. If you have not already filled out the meeting notes for your team, please do so **now**! Thank you so much!",
             color=discord.Color.brand_green(),
         )
-        view = discord.ui.View()
+        view = MILBotView()
         view.add_item(
             discord.ui.Button(label="Meeting Notes", url=LEADERS_MEETING_NOTES_URL),
         )
@@ -86,7 +87,7 @@ class Leaders(commands.Cog):
             description="It's time! The leaders meeting is starting now! Please join on time so we can begin the meeting promptly.",
             color=discord.Color.brand_red(),
         )
-        view = discord.ui.View()
+        view = MILBotView()
         view.add_item(
             discord.ui.Button(label="Meeting Notes", url=LEADERS_MEETING_NOTES_URL),
         )

@@ -7,6 +7,7 @@ import discord
 from discord.ext import commands
 
 from .roles import TeamRolesView
+from .views import MILBotView
 
 if TYPE_CHECKING:
     from .bot import MILBot
@@ -41,7 +42,7 @@ class ChangeUsernameModal(discord.ui.Modal):
         )
 
 
-class ChangeUsernameView(discord.ui.View):
+class ChangeUsernameView(MILBotView):
     def __init__(self, bot: MILBot):
         self.bot = bot
         super().__init__()
@@ -55,7 +56,7 @@ class ChangeUsernameView(discord.ui.View):
         await interaction.response.send_modal(ChangeUsernameModal(self.bot))
 
 
-class WelcomeView(discord.ui.View):
+class WelcomeView(MILBotView):
     def __init__(self, bot: MILBot):
         super().__init__(timeout=None)
         self.bot = bot

@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 import discord
 from discord.ext import commands
 
+from .views import MILBotView
+
 if TYPE_CHECKING:
     from .bot import MILBot
 
@@ -62,44 +64,20 @@ class GroupButton(discord.ui.Button):
             )
 
 
-class TeamRolesView(discord.ui.View):
+class TeamRolesView(MILBotView):
     def __init__(self, bot: MILBot):
         super().__init__(timeout=None)
         self.add_item(GroupButton(label="Mechanical", bot=bot, emoji="🔧"))
         self.add_item(GroupButton(label="Electrical", bot=bot, emoji="🔋"))
         self.add_item(GroupButton(label="Software", bot=bot, emoji="💻"))
 
-    async def on_error(
-        self,
-        interaction: discord.Interaction,
-        exception: Exception,
-        item: discord.ui.Item,
-    ):
-        logger.exception(f"Error with role selection: {exception}")
-        await interaction.response.send_message(
-            f"Sorry! There was an error with your role selection: `{exception}`",
-            ephemeral=True,
-        )
 
-
-class MechanicalRolesView(discord.ui.View):
+class MechanicalRolesView(MILBotView):
     def __init__(self, bot: MILBot):
         super().__init__(timeout=None)
         self.add_item(GroupButton(label="Structures and Manufacturing", bot=bot))
         self.add_item(GroupButton(label="Mechanisms and Testing", bot=bot))
         self.add_item(GroupButton(label="Dynamics and Controls", bot=bot))
-
-    async def on_error(
-        self,
-        interaction: discord.Interaction,
-        exception: Exception,
-        item: discord.ui.Item,
-    ):
-        logger.exception(f"Error with role selection: {exception}")
-        await interaction.response.send_message(
-            f"Sorry! There was an error with your role selection: `{exception}`",
-            ephemeral=True,
-        )
 
 
 class GroupCog(commands.Cog):

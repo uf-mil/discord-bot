@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 import logging.handlers
@@ -7,6 +9,7 @@ import traceback
 import aiohttp
 import discord
 import gspread_asyncio
+from discord import app_commands
 from discord.ext import commands
 from discord.ext import tasks as ext_tasks
 from google.auth import crypt
@@ -21,6 +24,7 @@ from .env import (
     GSPREAD_TOKEN_URI,
     GUILD_ID,
 )
+from .exceptions import MILBotErrorHandler
 from .reports import ReportsView
 from .roles import MechanicalRolesView, TeamRolesView
 from .tasks import TaskManager
@@ -53,6 +57,19 @@ logger = logging.getLogger(__name__)
 intents = discord.Intents.all()
 
 
+class MILBotCommandTree(app_commands.CommandTree):
+    def __init__(self, client: MILBot):
+        super().__init__(client)
+        self.handler = MILBotErrorHandler()
+
+    async def on_error(
+        self,
+        interaction: discord.Interaction[MILBot],
+        error: app_commands.AppCommandError,
+    ) -> None:
+        await self.handler.handle_interaction_exception(interaction, error)
+
+
 class MILBot(commands.Bot):
 
     # MIL server ref
@@ -62,6 +79,7 @@ class MILBot(commands.Bot):
     leave_channel: discord.TextChannel
     general_channel: discord.TextChannel
     reports_channel: discord.TextChannel
+    errors_channel: discord.TextChannel
     # Emojis
     loading_emoji: str
     # Roles
@@ -78,6 +96,7 @@ class MILBot(commands.Bot):
             command_prefix="!",
             case_insensitive=True,
             intents=intents,
+            tree_cls=MILBotCommandTree,
         )
         self.tasks = TaskManager()
 
@@ -210,6 +229,13 @@ class MILBot(commands.Bot):
         assert isinstance(leaders_channel, discord.TextChannel)
         self.leaders_channel = leaders_channel
 
+        errors_channel = discord.utils.get(
+            self.active_guild.text_channels,
+            name="bot-errors",
+        )
+        assert isinstance(errors_channel, discord.TextChannel)
+        self.errors_channel = errors_channel
+
         # Roles
         egn4912_role = discord.utils.get(
             self.active_guild.roles,
@@ -237,15 +263,20 @@ class MILBot(commands.Bot):
         if message.author == self.user:
             return
 
-        if message.content == "ping":
-            await message.channel.send("pong")
-
         await self.process_commands(message)
 
     async def on_member_join(self, member: discord.Member):
         role = discord.utils.get(member.guild.roles, name="New Member")
         assert isinstance(role, discord.Role)
         await member.add_roles(role)
+
+    async def on_error(self, event, *args, **kwargs):
+        self.handler = MILBotErrorHandler()
+        await self.handler.handle_event_exception(event, self)
+
+    async def on_command_error(self, ctx, error):
+        self.handler = MILBotErrorHandler()
+        await self.handler.handle_command_exception(ctx, error)
 
 
 bot = MILBot()

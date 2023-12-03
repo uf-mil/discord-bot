@@ -11,6 +11,7 @@ import gspread
 from discord.ext import commands
 
 from .helper import run_on_weekday
+from .views import MILBotView
 
 if TYPE_CHECKING:
     from .bot import MILBot
@@ -133,7 +134,7 @@ class ReportsModal(discord.ui.Modal):
             )
 
 
-class ReportsView(discord.ui.View):
+class ReportsView(MILBotView):
     def __init__(self, bot: MILBot):
         self.bot = bot
         super().__init__(timeout=None)
