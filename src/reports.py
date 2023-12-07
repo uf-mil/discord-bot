@@ -20,6 +20,23 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def is_active() -> bool:
+    """
+    Whether the reports system is active.
+    """
+    semesters = [
+        (datetime.date(2023, 8, 23), datetime.date(2023, 12, 6)),
+        (datetime.date(2024, 1, 8), datetime.date(2024, 4, 24)),
+        (datetime.date(2024, 5, 13), datetime.date(2024, 8, 9)),
+    ]
+    for semester in semesters:
+        if semester[0] <= datetime.date.today() <= semester[1]:
+            return True
+        if datetime.date.today() <= semester[0]:
+            return False
+    return False
+
+
 class ReportsModal(discord.ui.Modal):
     name = discord.ui.TextInput(label="Name", placeholder="Albert Gator")
     ufid = discord.ui.TextInput(
@@ -152,6 +169,12 @@ class ReportsView(MILBotView):
                 ephemeral=True,
             )
 
+        if not is_active():
+            return await interaction.response.send_message(
+                "❌ The weekly reports system is currently inactive due to the interim period between semesters. Please wait until next semester to document any work you have completed in between semesters. Thank you!",
+                ephemeral=True,
+            )
+
         # Send modal where user fills out report
         await interaction.response.send_modal(ReportsModal(self.bot))
 
@@ -167,14 +190,14 @@ class ReportsCog(commands.Cog):
         self._tasks.add(self.bot.loop.create_task(self.add_no()))
         self._tasks.add(self.bot.loop.create_task(self.individual_reminder()))
 
-    @run_on_weekday(calendar.FRIDAY, 12, 0)
+    @run_on_weekday(calendar.FRIDAY, 12, 0, check=is_active)
     async def post_reminder(self):
         general_channel = self.bot.general_channel
         return await general_channel.send(
             f"{self.bot.egn4912_role.mention}\nHey everyone! Friendly reminder to submit your weekly progress reports by **tomorrow night at 11:59pm**. You can submit your reports in the {self.bot.reports_channel.mention} channel. If you have any questions, please contact your leader. Thank you!",
         )
 
-    @run_on_weekday(calendar.SATURDAY, 12, 0)
+    @run_on_weekday(calendar.SATURDAY, 12, 0, check=is_active)
     async def individual_reminder(self):
         # Get all members who have not completed reports for the week
         main_worksheet = await self.bot.sh.get_worksheet(0)
@@ -206,7 +229,7 @@ class ReportsCog(commands.Cog):
                         f"Could not send individual report reminder to {member}.",
                     )
 
-    @run_on_weekday(calendar.SUNDAY, 0, 0)
+    @run_on_weekday(calendar.SUNDAY, 0, 0, check=is_active)
     async def add_no(self):
         main_worksheet = await self.bot.sh.get_worksheet(0)
 

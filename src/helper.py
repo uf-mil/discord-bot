@@ -1,9 +1,11 @@
 import asyncio
 import datetime
 import logging
-from collections.abc import Callable, Coroutine
+from collections.abc import Awaitable, Callable, Coroutine
 from functools import wraps
 from typing import Any, TypeVar
+
+from discord.utils import maybe_coroutine
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
@@ -16,6 +18,7 @@ def run_on_weekday(
     hour: int,
     minute: int,
     shift: datetime.timedelta | None = None,
+    check: Callable[[], bool | Awaitable[bool]] | None = None,
 ):
     """
     Runs the decorated function on the next instance of the specified weekday.
@@ -32,7 +35,7 @@ def run_on_weekday(
 
     def decorator(func: Callable[..., Coroutine[Any, Any, T]]):  # type: ignore
         @wraps(func)
-        async def wrapper(*args, **kwargs) -> T:
+        async def wrapper(*args, **kwargs) -> T | None:
             # Sleep until the next instance of the weekday
             # at the specified time
             now = datetime.datetime.now()
@@ -52,6 +55,13 @@ def run_on_weekday(
 
             # Find next time to run the function (next week)
             _tasks.add(asyncio.create_task(wrapper(*args, **kwargs)))
+
+            # Check if the function should be run again
+            if check and not await maybe_coroutine(check):
+                logger.info(
+                    f"Skipping {func.__name__} until next week because check failed.",
+                )
+                return
 
             # Run the function
             try:
