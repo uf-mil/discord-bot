@@ -11,6 +11,7 @@ import gspread
 from discord.ext import commands
 
 from .helper import run_on_weekday
+from .utils import is_active
 from .views import MILBotView
 
 if TYPE_CHECKING:
@@ -18,23 +19,6 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
-
-
-def is_active() -> bool:
-    """
-    Whether the reports system is active.
-    """
-    semesters = [
-        (datetime.date(2023, 8, 23), datetime.date(2023, 12, 6)),
-        (datetime.date(2024, 1, 8), datetime.date(2024, 4, 24)),
-        (datetime.date(2024, 5, 13), datetime.date(2024, 8, 9)),
-    ]
-    for semester in semesters:
-        if semester[0] <= datetime.date.today() <= semester[1]:
-            return True
-        if datetime.date.today() <= semester[0]:
-            return False
-    return False
 
 
 class ReportsModal(discord.ui.Modal):
@@ -67,7 +51,7 @@ class ReportsModal(discord.ui.Modal):
         self.bot = bot
         super().__init__(title="Weekly Report")
 
-    async def on_submit(self, interaction: discord.Interaction):
+    async def on_submit(self, interaction: discord.Interaction) -> None:
         await interaction.response.send_message(
             f"{self.bot.loading_emoji} Attempting to save your report...",
             ephemeral=True,
@@ -76,9 +60,10 @@ class ReportsModal(discord.ui.Modal):
         # Validate input
         # Check that team is one of the three
         if self.team.value.lower() not in ["electrical", "mechanical", "software"]:
-            return await interaction.edit_original_response(
+            await interaction.edit_original_response(
                 content="❌ Please enter a valid team name! (`Electrical`, `Mechanical`, or `Software`)",
             )
+            return
 
         # Find users name in the main sheet
         main_worksheet = await self.bot.sh.get_worksheet(0)
@@ -86,15 +71,17 @@ class ReportsModal(discord.ui.Modal):
 
         # If name not found, return
         if name_cell is None:
-            return await interaction.edit_original_response(
+            await interaction.edit_original_response(
                 content="❌ We couldn't find your name in the main spreadsheet. Are you registered for EGN4912?",
             )
+            return
 
         # Ensure UFID matches
         if (await main_worksheet.cell(name_cell.row, 2)).value != self.ufid.value:
-            return await interaction.edit_original_response(
+            await interaction.edit_original_response(
                 content="❌ The UFID you entered does not match the one we have on file!",
             )
+            return
 
         # Calculate column to log in.
         first_date = datetime.date(2023, 9, 24)
@@ -105,9 +92,10 @@ class ReportsModal(discord.ui.Modal):
         if (
             await main_worksheet.cell(name_cell.row, week + self.TOTAL_COLUMNS)
         ).value == "Y":
-            return await interaction.edit_original_response(
+            await interaction.edit_original_response(
                 content="❌ You've already submitted a report for this week!",
             )
+            return
 
         await main_worksheet.update_cell(
             name_cell.row,

@@ -12,6 +12,7 @@ from discord.ext import commands
 
 from .env import LEADERS_MEETING_NOTES_URL, LEADERS_MEETING_URL
 from .helper import run_on_weekday
+from .utils import is_active
 from .views import MILBotView
 
 if TYPE_CHECKING:
@@ -34,6 +35,7 @@ class Leaders(commands.Cog):
         MEETING_TIME.hour,
         MEETING_TIME.minute,
         shift=-datetime.timedelta(hours=7),
+        check=is_active,
     )
     async def notes_reminder(self):
         meeting_time = datetime.datetime.combine(datetime.date.today(), MEETING_TIME)
@@ -57,6 +59,7 @@ class Leaders(commands.Cog):
         MEETING_TIME.hour,
         MEETING_TIME.minute,
         shift=-datetime.timedelta(minutes=15),
+        check=is_active,
     )
     async def pre_reminder(self):
         embed = discord.Embed(
@@ -80,6 +83,7 @@ class Leaders(commands.Cog):
         MEETING_TIME.hour,
         MEETING_TIME.minute,
         shift=-datetime.timedelta(minutes=2),
+        check=is_active,
     )
     async def at_reminder(self):
         embed = discord.Embed(
