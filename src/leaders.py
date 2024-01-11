@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 
 MEETING_TIME = datetime.time(19, 0, 0)
-MEETING_DAY = calendar.MONDAY
+MEETING_DAY = calendar.TUESDAY
 
 
 class Leaders(commands.Cog):
