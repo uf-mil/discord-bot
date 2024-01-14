@@ -23,6 +23,12 @@ class MILException(Exception):
     """
 
 
+class ResourceNotFound(MILException):
+    """
+    The bot attempted to grab a resource that should exist, but the resource could not be found.
+    """
+
+
 class MILBotErrorHandler:
     """
     General error handler for the bot. Handles command errors, interaction errors,
@@ -61,6 +67,7 @@ class MILBotErrorHandler:
 
         error_messages: dict[type[BaseException], str] = {
             # Custom messages
+            ResourceNotFound: "Oops, I couldn't find that resource. Please try again.",
             # Application commands or Interactions
             app_commands.NoPrivateMessage: "Sorry, but this command does not work in private message. Please hop on over to the server to use the command!",
             app_commands.MissingPermissions: "Hey pal, you don't have the necessary permissions to run this command.",

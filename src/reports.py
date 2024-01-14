@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import calendar
 import datetime
+import enum
 import itertools
 import logging
+from dataclasses import dataclass
+from enum import auto
 from typing import TYPE_CHECKING
 
 import discord
 import gspread
+import gspread_asyncio
 from discord.ext import commands
 
 from .helper import run_on_weekday
@@ -39,22 +43,15 @@ class ReportsModal(discord.ui.Modal):
         style=discord.TextStyle.long,
     )
 
-    NAME_COLUMN = 1
-    UFID_COLUMN = 2
-    LEADERS_COLUMN = 3
-    TEAM_COLUMN = 4
-    DISCORD_NAME_COLUMN = 5
-
-    TOTAL_COLUMNS = 5
-
     def __init__(self, bot: MILBot):
         self.bot = bot
         super().__init__(title="Weekly Report")
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         await interaction.response.send_message(
-            f"{self.bot.loading_emoji} Attempting to save your report...",
+            f"{self.bot.loading_emoji} Reviewing and validating your report before submitting...",
             ephemeral=True,
+            file=await self.bot.reading_gif(),
         )
 
         # Validate input
@@ -62,6 +59,7 @@ class ReportsModal(discord.ui.Modal):
         if self.team.value.lower() not in ["electrical", "mechanical", "software"]:
             await interaction.edit_original_response(
                 content="❌ Please enter a valid team name! (`Electrical`, `Mechanical`, or `Software`)",
+                attachments=[],
             )
             return
 
@@ -73,47 +71,69 @@ class ReportsModal(discord.ui.Modal):
         if name_cell is None:
             await interaction.edit_original_response(
                 content="❌ We couldn't find your name in the main spreadsheet. Are you registered for EGN4912?",
+                attachments=[],
             )
             return
 
         # Ensure UFID matches
-        if (await main_worksheet.cell(name_cell.row, 2)).value != self.ufid.value:
+        if (
+            await main_worksheet.cell(name_cell.row, self.bot.reports_cog.UFID_COLUMN)
+        ).value != self.ufid.value:
             await interaction.edit_original_response(
                 content="❌ The UFID you entered does not match the one we have on file!",
+                attachments=[],
             )
             return
 
         # Calculate column to log in.
-        first_date = datetime.date(2023, 9, 24)
+        first_date = self.bot.reports_cog.FIRST_DATE
         today = datetime.date.today()
         week = (today - first_date).days // 7 + 1
 
         # Log a Y for their square
+        print(
+            await main_worksheet.cell(
+                name_cell.row,
+                week + self.bot.reports_cog.TOTAL_COLUMNS,
+            ),
+        )
         if (
-            await main_worksheet.cell(name_cell.row, week + self.TOTAL_COLUMNS)
-        ).value == "Y":
+            await main_worksheet.cell(
+                name_cell.row,
+                week + self.bot.reports_cog.TOTAL_COLUMNS,
+            )
+        ).value:
             await interaction.edit_original_response(
                 content="❌ You've already submitted a report for this week!",
+                attachments=[],
             )
             return
 
         await main_worksheet.update_cell(
             name_cell.row,
-            self.TEAM_COLUMN,
+            self.bot.reports_cog.TEAM_COLUMN,
             self.team.value.title(),
         )
         await main_worksheet.update_cell(
             name_cell.row,
-            self.DISCORD_NAME_COLUMN,
+            self.bot.reports_cog.DISCORD_NAME_COLUMN,
             str(interaction.user),
         )
-        await main_worksheet.update_cell(name_cell.row, week + self.TOTAL_COLUMNS, "Y")
+        await main_worksheet.update_cell(
+            name_cell.row,
+            week + self.bot.reports_cog.TOTAL_COLUMNS,
+            "Y",
+        )
 
-        # Add a comment with their full report
-        a1_notation = gspread.utils.rowcol_to_a1(name_cell.row, week + self.TOTAL_COLUMNS)  # type: ignore
-        await main_worksheet.insert_note(
+        # Add a comment with their full report in the cell
+        a1_notation = gspread.utils.rowcol_to_a1(name_cell.row, week + self.bot.reports_cog.TOTAL_COLUMNS)  # type: ignore
+        await main_worksheet.update(
             a1_notation,
-            f"{self.report.value}\n\n(submitted at {datetime.datetime.now().strftime('%m/%d/%Y %H:%M:%S')})",
+            [
+                [
+                    f"{self.report.value} (submitted at {datetime.datetime.now().strftime('%m/%d/%Y %H:%M:%S')})",
+                ],
+            ],
         )
 
         week_date = first_date + datetime.timedelta(days=(week - 1) * 7)
@@ -132,10 +152,12 @@ class ReportsModal(discord.ui.Modal):
         except discord.Forbidden:
             await interaction.edit_original_response(
                 content="✅ Your report was successfully submitted. However, you do not have direct messages enabled, so we were unable to send you a receipt.",
+                attachments=[],
             )
         else:
             await interaction.edit_original_response(
                 content="✅ Successfully logged your report! A receipt of your report has been sent to you through direct messages. Thank you!",
+                attachments=[],
             )
 
 
@@ -167,9 +189,55 @@ class ReportsView(MILBotView):
         await interaction.response.send_modal(ReportsModal(self.bot))
 
 
+class Team(enum.Enum):
+    SOFTWARE = auto()
+    ELECTRICAL = auto()
+    MECHANICAL = auto()
+    SYSTEMS = auto()
+
+    @classmethod
+    def from_str(cls, ss_str: str) -> Team:
+        if "software" in ss_str.lower():
+            return cls.SOFTWARE
+        if "electrical" in ss_str.lower():
+            return cls.ELECTRICAL
+        if "mechanical" in ss_str.lower():
+            return cls.MECHANICAL
+        return cls.SYSTEMS
+
+    def __str__(self) -> str:
+        return self.name.title()
+
+
+@dataclass
+class Student:
+    name: str
+    discord_id: str
+    member: discord.Member | None
+    team: Team
+    report: str
+
+    @property
+    def first_name(self) -> str:
+        return str(self.name).split(" ")[0]
+
+    @property
+    def status_emoji(self) -> str:
+        return "✅" if self.report else "❌"
+
+
 class ReportsCog(commands.Cog):
 
-    TOTAL_COLUMNS = 5
+    NAME_COLUMN = 1
+    EMAIL_COLUMN = 2
+    UFID_COLUMN = 3
+    LEADERS_COLUMN = 4
+    TEAM_COLUMN = 5
+    DISCORD_NAME_COLUMN = 6
+
+    FIRST_DATE = datetime.date(2024, 1, 14)  # TODO: Make this automatically derived
+
+    TOTAL_COLUMNS = 6
 
     def __init__(self, bot: MILBot):
         self.bot = bot
@@ -177,6 +245,7 @@ class ReportsCog(commands.Cog):
         self._tasks.add(self.bot.loop.create_task(self.post_reminder()))
         self._tasks.add(self.bot.loop.create_task(self.add_no()))
         self._tasks.add(self.bot.loop.create_task(self.individual_reminder()))
+        self._tasks.add(self.bot.loop.create_task(self.last_week_summary()))
 
     @run_on_weekday(calendar.FRIDAY, 12, 0, check=is_active)
     async def post_reminder(self):
@@ -185,36 +254,60 @@ class ReportsCog(commands.Cog):
             f"{self.bot.egn4912_role.mention}\nHey everyone! Friendly reminder to submit your weekly progress reports by **tomorrow night at 11:59pm**. You can submit your reports in the {self.bot.reports_channel.mention} channel. If you have any questions, please contact your leader. Thank you!",
         )
 
+    async def safe_col_values(
+        self,
+        ws: gspread_asyncio.AsyncioGspreadWorksheet,
+        column: int,
+    ) -> list[str]:
+        names = await ws.col_values(column)
+        if not isinstance(names, list):
+            raise RuntimeError("Column is missing!")
+        return [n or "" for n in names]
+
+    async def students_status(self, column: int) -> list[Student]:
+        main_worksheet = await self.bot.sh.get_worksheet(0)
+        names = await self.safe_col_values(main_worksheet, self.NAME_COLUMN)
+        discord_ids = await self.safe_col_values(
+            main_worksheet,
+            self.DISCORD_NAME_COLUMN,
+        )
+        teams = await self.safe_col_values(main_worksheet, self.TEAM_COLUMN)
+        col_vals = await main_worksheet.col_values(column)
+        students = list(itertools.zip_longest(names, discord_ids, teams, col_vals))
+
+        res: list[Student] = []
+        for name, discord_id, team, value in students[2:]:  # (skip header rows)
+            member = self.bot.active_guild.get_member_named(str(discord_id))
+            res.append(
+                Student(name, discord_id, member, Team.from_str(team), str(value)),
+            )
+        res.sort(key=lambda s: s.first_name)
+        return res
+
     @run_on_weekday(calendar.SATURDAY, 12, 0, check=is_active)
     async def individual_reminder(self):
         # Get all members who have not completed reports for the week
-        main_worksheet = await self.bot.sh.get_worksheet(0)
-        first_date = datetime.date(2023, 9, 24)
+        await self.bot.sh.get_worksheet(0)
         today = datetime.date.today()
-        week = (today - first_date).days // 7 + 1
+        week = (today - self.FIRST_DATE).days // 7 + 1
         column = week + self.TOTAL_COLUMNS
 
-        names = await main_worksheet.col_values(1)
-        discord_ids = await main_worksheet.col_values(5)
-        col_vals = await main_worksheet.col_values(column)
-        students = list(itertools.zip_longest(names, discord_ids, col_vals))
+        students = await self.students_status(column)
 
         deadline_tonight = datetime.datetime.combine(
             datetime.date.today(),
             datetime.time(23, 59, 59),
         )
-        for name, discord_id, value in students:
-            member = self.bot.active_guild.get_member_named(str(discord_id))
-            first_name = str(name).split(" ")[0]
-            if member and value != "Y":
+        for student in students:
+            if student.member and not student.report:
                 try:
-                    await member.send(
-                        f"Hey **{first_name}**! It's your friendly uf-mil-bot here. I noticed you haven't submitted your weekly MIL report yet. Please submit it in the {self.bot.reports_channel.mention} channel by {discord.utils.format_dt(deadline_tonight, 't')} tonight. Thank you!",
+                    await student.member.send(
+                        f"Hey **{student.first_name}**! It's your friendly uf-mil-bot here. I noticed you haven't submitted your weekly MIL report yet. Please submit it in the {self.bot.reports_channel.mention} channel by {discord.utils.format_dt(deadline_tonight, 't')} tonight. Thank you!",
                     )
-                    logger.info(f"Sent individual report reminder to {member}.")
+                    logger.info(f"Sent individual report reminder to {student.member}.")
                 except discord.Forbidden:
                     logger.info(
-                        f"Could not send individual report reminder to {member}.",
+                        f"Could not send individual report reminder to {student.member}.",
                     )
 
     @run_on_weekday(calendar.SUNDAY, 0, 0, check=is_active)
@@ -222,9 +315,8 @@ class ReportsCog(commands.Cog):
         main_worksheet = await self.bot.sh.get_worksheet(0)
 
         # Calculate the week number and get the column
-        first_date = datetime.date(2023, 9, 24)
         today = datetime.date.today()
-        week = (today - first_date).days // 7 + 1
+        week = (today - self.FIRST_DATE).days // 7 + 1
         column = week + self.TOTAL_COLUMNS - 1  # -1 because the week has now passed
 
         # Add a "N" to all rows that do not currently have a value
@@ -241,6 +333,52 @@ class ReportsCog(commands.Cog):
             elif val:
                 new_cells.append(gspread.Cell(i + 1, column, val))
         await main_worksheet.update_cells(new_cells)
+
+    @run_on_weekday(calendar.MONDAY, 0, 0)
+    async def last_week_summary(self):
+        """
+        Gives leaders a list of who submitted reports and who did not.
+        """
+        await self.bot.sh.get_worksheet(0)
+
+        # Calculate the week number and get the column
+        today = datetime.date.today()
+        week = (today - self.FIRST_DATE).days // 7 + 1
+        column = week + self.TOTAL_COLUMNS - 1  # -1 because the week has now passed
+
+        # Get all members who have not completed reports for the week
+        students = await self.students_status(column)
+
+        # Generate embed
+        first_day_of_week = self.FIRST_DATE + datetime.timedelta(days=(week - 1) * 7)
+        last_day_of_week = first_day_of_week + datetime.timedelta(days=6)
+        first = first_day_of_week.strftime("%B %-d, %Y")
+        last = last_day_of_week.strftime("%B %-d, %Y")
+        for team in Team:
+            embed = discord.Embed(
+                title=f"Report Summary: `{first}` - `{last}`",
+                color=discord.Color.gold(),
+                description=f"Hola, {team}! Here's a summary of last week's reports. Please review progress of members from last week, including those who did not submit reports. Thank you!",
+            )
+
+            team_members = [s for s in students if s.team == team]
+            if not team_members:
+                continue
+            while team_members:
+                field_text = ""
+                first_letter = team_members[0].first_name[0]
+                member = team_members[0]
+                while len(field_text) < 900 and team_members:
+                    member = team_members.pop(0)
+                    field_text += f"{member.status_emoji} `{member.name}:` {member.report or 'missing :('}\n"
+                embed.add_field(
+                    name=f"Members {first_letter} - {member.first_name[0]}",
+                    value=field_text,
+                    inline=False,
+                )
+
+            team_leads_ch = self.bot.team_leads_ch(team)
+            await team_leads_ch.send(embed=embed)
 
     @commands.is_owner()
     @commands.command()
