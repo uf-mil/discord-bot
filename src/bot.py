@@ -5,6 +5,7 @@ import logging
 import logging.handlers
 import random
 import traceback
+from io import BytesIO
 
 import aiohttp
 import discord
@@ -21,11 +22,12 @@ from .env import (
     GSPREAD_PRIVATE_KEY,
     GSPREAD_PRIVATE_KEY_ID,
     GSPREAD_SERVICE_ACCOUNT_EMAIL,
+    GSPREAD_SS_NAME,
     GSPREAD_TOKEN_URI,
     GUILD_ID,
 )
-from .exceptions import MILBotErrorHandler
-from .reports import ReportsView
+from .exceptions import MILBotErrorHandler, ResourceNotFound
+from .reports import ReportsCog, ReportsView, Team
 from .roles import MechanicalRolesView, TeamRolesView
 from .tasks import TaskManager
 from .welcome import WelcomeView
@@ -86,6 +88,9 @@ class MILBot(commands.Bot):
     egn4912_role: discord.Role
     leaders_role: discord.Role
     sys_leads_role: discord.Role
+
+    # Cogs
+    reports_cog: ReportsCog
 
     # Internal
     session: aiohttp.ClientSession
@@ -190,7 +195,7 @@ class MILBot(commands.Bot):
 
         agcm = gspread_asyncio.AsyncioGspreadClientManager(get_creds)
         self.agc = await agcm.authorize()
-        self.sh = await self.agc.open("MIL Fall 2023 Weekly Responses")
+        self.sh = await self.agc.open(GSPREAD_SS_NAME)
 
     async def fetch_vars(self) -> None:
         # Guilds
@@ -257,6 +262,31 @@ class MILBot(commands.Bot):
         )
         assert isinstance(sys_leads_role, discord.Role)
         self.sys_leads_role = sys_leads_role
+
+        reports_cog = self.get_cog("ReportsCog")
+        if not reports_cog:
+            raise ResourceNotFound("Reports cog not found.")
+        self.reports_cog = reports_cog  # type: ignore
+
+    def team_leads_ch(self, team: Team) -> discord.TextChannel:
+        ch = discord.utils.get(
+            self.active_guild.text_channels,
+            name=f"{team.name.lower()}-leadership",
+        )
+        if not ch:
+            raise ResourceNotFound("Channel not found.")
+        return ch
+
+    async def reading_gif(self) -> discord.File:
+        gifs = [
+            "https://media1.tenor.com/m/ogsH7Ailje8AAAAd/cat-funny-cat.gif",
+            "https://media1.giphy.com/media/h6AMD4GXFxO2k/giphy.gif",
+            "https://media1.tenor.com/m/CtS49WH3D0AAAAAd/roomba-riding.gif",
+        ]
+        async with self.session.get(random.choice(gifs)) as resp:
+            if resp.status != 200:
+                raise ResourceNotFound("Cat gif not found.")
+            return discord.File(BytesIO(await resp.read()), filename="cat.gif")
 
     async def on_message(self, message):
         # don't respond to ourselves
