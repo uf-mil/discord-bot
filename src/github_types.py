@@ -1,4 +1,6 @@
-from typing import TypedDict
+import datetime
+from enum import Enum
+from typing import Any, TypedDict
 
 
 class User(TypedDict):
@@ -365,3 +367,70 @@ class Invitation(TypedDict):
     team_count: int
     invitation_teams_url: str
     invitation_source: str
+
+
+class SoftwareProjectStatus(Enum):
+    TODO = "Todo"
+    IN_PROGRESS = "In Progress"
+    DONE = "Done"
+
+
+class SoftwareProjectItem:
+    issue_number: int
+    issue_title: str
+    assignees: list[str]
+    status: SoftwareProjectStatus | None
+    due_date: datetime.datetime | None
+
+    def _get_field(
+        self,
+        nodes: list[dict[str, Any]],
+        field_name: str,
+    ) -> dict[str, Any] | None:
+        for node in nodes:
+            if len(node.items()) == 0:
+                continue
+            if node["field"]["name"] == field_name:
+                return node
+        return None
+
+    def __init__(self, properties: dict[str, Any]):
+        self.issue_number = properties["content"]["number"]
+        self.issue_title = properties["content"]["title"]
+        nodes = properties["fieldValues"]["nodes"]
+        assignee_field = self._get_field(nodes, "Assignees")
+        if assignee_field:
+            self.assignees = [
+                assignee["login"] for assignee in assignee_field["users"]["nodes"]
+            ]
+        else:
+            self.assignees = []
+        status_field = self._get_field(nodes, "Status")
+        if status_field:
+            self.status = SoftwareProjectStatus(status_field["name"])
+        else:
+            self.status = None
+        due_date_field = self._get_field(nodes, "Due Date")
+        if due_date_field:
+            self.due_date = datetime.datetime.fromisoformat(due_date_field["date"])
+        else:
+            self.due_date = None
+
+
+class SoftwareProject:
+    title: str
+    emoji: str
+    short_description: str
+    items: list[SoftwareProjectItem]
+
+    def __init__(self, properties: dict[str, Any]):
+        self.title = properties["title"]
+        self.short_description = properties["shortDescription"]
+        try:
+            self.emoji = properties["shortDescription"].split(" ")[0]
+        except Exception:
+            self.emoji = "❓"
+        self.items = []
+        for item in properties["items"]["nodes"]:
+            item = SoftwareProjectItem(item)
+            self.items.append(item)
