@@ -14,7 +14,7 @@ import gspread
 import gspread_asyncio
 from discord.ext import commands
 
-from .helper import run_on_weekday
+from .tasks import run_on_weekday
 from .utils import is_active
 from .views import MILBotView
 
@@ -241,13 +241,12 @@ class ReportsCog(commands.Cog):
 
     def __init__(self, bot: MILBot):
         self.bot = bot
-        self._tasks = set()
-        self._tasks.add(self.bot.loop.create_task(self.post_reminder()))
-        self._tasks.add(self.bot.loop.create_task(self.add_no()))
-        self._tasks.add(self.bot.loop.create_task(self.individual_reminder()))
-        self._tasks.add(self.bot.loop.create_task(self.last_week_summary()))
+        self.post_reminder.start(self)
+        self.last_week_summary.start(self)
+        self.add_no.start(self)
+        self.individual_reminder.start(self)
 
-    @run_on_weekday(calendar.FRIDAY, 12, 0, check=is_active)
+    @run_on_weekday(calendar.SATURDAY, 12, 0, check=is_active)
     async def post_reminder(self):
         general_channel = self.bot.general_channel
         return await general_channel.send(

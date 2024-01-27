@@ -115,7 +115,7 @@ class MILBot(commands.Bot):
             intents=intents,
             tree_cls=MILBotCommandTree,
         )
-        self.tasks = TaskManager()
+        self.tasks = TaskManager(self)
         self._setup = asyncio.Event()
 
     async def on_ready(self):
@@ -310,6 +310,10 @@ class MILBot(commands.Bot):
         if not reports_cog:
             raise ResourceNotFound("Reports cog not found.")
         self.reports_cog = reports_cog  # type: ignore
+
+        for task in self.tasks.recurring_tasks():
+            task.bot = self
+            task.schedule()
 
         self.github = GitHub(auth_token=GITHUB_TOKEN, bot=bot)
         self._setup.set()
