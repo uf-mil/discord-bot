@@ -20,6 +20,7 @@ from .github_types import (
     Issue,
     OrganizationTeam,
     Repository,
+    SoftwareProject,
     User,
 )
 
@@ -121,6 +122,86 @@ class GitHub:
     async def get_team(self, org_name: str, team_name: str) -> OrganizationTeam:
         url = f"https://api.github.com/orgs/{org_name}/teams/{team_name}"
         return await self.fetch(url)
+
+    async def get_software_projects(self) -> list[SoftwareProject]:
+        query = """
+            query {
+              viewer {
+                organization(login: "uf-mil") {
+                  projectsV2(first: 15, query: "is:open") {
+                    nodes {
+                      title
+                      shortDescription
+                      items(first: 10) {
+                        nodes {
+                          type
+                          id
+                          content {
+                            ... on Issue {
+                              state
+                              title
+                              number
+                            }
+                          }
+                          fieldValues(first: 10){
+                            nodes {
+                              ... on ProjectV2ItemFieldDateValue {
+                                date
+                                field {
+                                  ... on ProjectV2Field {
+                                    name
+                                  }
+                                }
+                              }
+                              ... on ProjectV2ItemFieldSingleSelectValue {
+                                name
+                                field {
+                                  ... on ProjectV2SingleSelectField {
+                                    name
+                                  }
+                                }
+                              }
+                              ... on ProjectV2ItemFieldUserValue {
+                                users(first: 5) {
+                                  nodes {
+                                    login
+                                    name
+                                  }
+                                }
+                                field {
+                                  ... on ProjectV2Field {
+                                    name
+                                  }
+                                }
+                              }
+                                            }
+                          }
+                        }
+                      }
+                    }
+                        }
+                }
+              }
+              rateLimit {
+                limit
+                remaining
+                used
+                resetAt
+              }
+            }
+        """
+        properties = await self.fetch(
+            "https://api.github.com/graphql",
+            method="POST",
+            data=json.dumps({"query": query}),
+        )
+        projects = []
+        for project_node in properties["data"]["viewer"]["organization"]["projectsV2"][
+            "nodes"
+        ]:
+            project = SoftwareProject(project_node)
+            projects.append(project)
+        return projects
 
 
 class GitHubCog(commands.Cog):

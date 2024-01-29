@@ -11,7 +11,7 @@ import discord
 from discord.ext import commands
 
 from .env import LEADERS_MEETING_NOTES_URL, LEADERS_MEETING_URL
-from .helper import run_on_weekday
+from .tasks import run_on_weekday
 from .utils import is_active
 from .views import MILBotView
 
@@ -26,9 +26,24 @@ MEETING_DAY = calendar.TUESDAY
 class Leaders(commands.Cog):
     def __init__(self, bot: MILBot):
         self.bot = bot
-        self.bot.tasks.create_task(self.notes_reminder())
-        self.bot.tasks.create_task(self.pre_reminder())
-        self.bot.tasks.create_task(self.at_reminder())
+        self.notes_reminder.start(self)
+        self.pre_reminder.start(self)
+        self.at_reminder.start(self)
+
+    @commands.command()
+    @commands.has_any_role("Software Leadership")
+    async def runtask(self, ctx: commands.Context, func_name: str):
+        for task in self.bot.tasks.recurring_tasks():
+            if task._func.__name__ == func_name:
+                msg = await ctx.send(
+                    f"{self.bot.loading_emoji} Running task `{func_name}`...",
+                )
+                await task.run_immediately()
+                await msg.edit(
+                    content=f"✅ Task `{func_name}` ran. Scheduled another instance to run at {task.next_time()}.",
+                )
+                return
+        await ctx.send(f"❌ Task `{func_name}` not found.")
 
     @run_on_weekday(
         MEETING_DAY,

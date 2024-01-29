@@ -19,6 +19,7 @@ from rich.logging import RichHandler
 
 from .env import (
     DISCORD_TOKEN,
+    GITHUB_TOKEN,
     GSPREAD_PRIVATE_KEY,
     GSPREAD_PRIVATE_KEY_ID,
     GSPREAD_SERVICE_ACCOUNT_EMAIL,
@@ -27,6 +28,8 @@ from .env import (
     GUILD_ID,
 )
 from .exceptions import MILBotErrorHandler, ResourceNotFound
+from .github import GitHub
+from .projects import SoftwareProjectsView
 from .reports import ReportsCog, ReportsView, Team
 from .roles import MechanicalRolesView, TeamRolesView
 from .tasks import TaskManager
@@ -76,25 +79,34 @@ class MILBot(commands.Bot):
 
     # MIL server ref
     active_guild: discord.Guild
+
     # Channels
     leaders_channel: discord.TextChannel
     leave_channel: discord.TextChannel
     general_channel: discord.TextChannel
     reports_channel: discord.TextChannel
     errors_channel: discord.TextChannel
+    software_projects_channel: discord.TextChannel
+    software_category_channel: discord.CategoryChannel
+
     # Emojis
     loading_emoji: str
+
     # Roles
     egn4912_role: discord.Role
     leaders_role: discord.Role
     sys_leads_role: discord.Role
+    software_leads_role: discord.Role
+    bot_role: discord.Role
 
     # Cogs
     reports_cog: ReportsCog
 
     # Internal
     session: aiohttp.ClientSession
+    _setup: asyncio.Event
     tasks: TaskManager
+    github: GitHub
 
     def __init__(self):
         super().__init__(
@@ -103,7 +115,8 @@ class MILBot(commands.Bot):
             intents=intents,
             tree_cls=MILBotCommandTree,
         )
-        self.tasks = TaskManager()
+        self.tasks = TaskManager(self)
+        self._setup = asyncio.Event()
 
     async def on_ready(self):
         print("Logged on as", self.user)
@@ -178,6 +191,7 @@ class MILBot(commands.Bot):
             "src.welcome",
             "src.reports",
             "src.leaders",
+            "src.projects",
         )
         for i, extension in enumerate(extensions):
             try:
@@ -192,6 +206,7 @@ class MILBot(commands.Bot):
         self.add_view(MechanicalRolesView(self))
         self.add_view(ReportsView(self))
         self.add_view(WelcomeView(self))
+        self.add_view(SoftwareProjectsView(self, []))
 
         agcm = gspread_asyncio.AsyncioGspreadClientManager(get_creds)
         self.agc = await agcm.authorize()
@@ -241,6 +256,20 @@ class MILBot(commands.Bot):
         assert isinstance(errors_channel, discord.TextChannel)
         self.errors_channel = errors_channel
 
+        software_projects_channel = discord.utils.get(
+            self.active_guild.text_channels,
+            name="software-projects",
+        )
+        assert isinstance(software_projects_channel, discord.TextChannel)
+        self.software_projects_channel = software_projects_channel
+
+        software_category_channel = discord.utils.get(
+            self.active_guild.categories,
+            name="Software",
+        )
+        assert isinstance(software_category_channel, discord.CategoryChannel)
+        self.software_category_channel = software_category_channel
+
         # Roles
         egn4912_role = discord.utils.get(
             self.active_guild.roles,
@@ -263,10 +292,31 @@ class MILBot(commands.Bot):
         assert isinstance(sys_leads_role, discord.Role)
         self.sys_leads_role = sys_leads_role
 
+        software_leads_role = discord.utils.get(
+            self.active_guild.roles,
+            name="Software Leadership",
+        )
+        assert isinstance(software_leads_role, discord.Role)
+        self.software_leads_role = software_leads_role
+
+        bot_role = discord.utils.get(
+            self.active_guild.roles,
+            name="Bot",
+        )
+        assert isinstance(bot_role, discord.Role)
+        self.bot_role = bot_role
+
         reports_cog = self.get_cog("ReportsCog")
         if not reports_cog:
             raise ResourceNotFound("Reports cog not found.")
         self.reports_cog = reports_cog  # type: ignore
+
+        for task in self.tasks.recurring_tasks():
+            task.bot = self
+            task.schedule()
+
+        self.github = GitHub(auth_token=GITHUB_TOKEN, bot=bot)
+        self._setup.set()
 
     def team_leads_ch(self, team: Team) -> discord.TextChannel:
         ch = discord.utils.get(
@@ -307,6 +357,10 @@ class MILBot(commands.Bot):
     async def on_command_error(self, ctx, error):
         self.handler = MILBotErrorHandler()
         await self.handler.handle_command_exception(ctx, error)
+
+    async def wait_until_ready(self):
+        await self._setup.wait()
+        await super().wait_until_ready()
 
 
 bot = MILBot()
