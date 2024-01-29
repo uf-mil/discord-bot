@@ -169,7 +169,7 @@ class SoftwareProjects(commands.Cog):
         embed = discord.Embed(
             title="Software Projects",
             color=discord.Color.teal(),
-            description="Looking for a software project to join? Look no further! Here are some of the projects that are currently looking for contributors.\n\nRemember that you should always be working on at least one project, and optionally more if you're interested! Each project channel will be forwarded updates and notifications relevant to the specific project.",
+            description="Looking for a software project to join? Look no further! Here are some of the projects that are currently looking for contributors.\n\nRemember that you should always be working on at least one project, and optionally more if you're interested! Each project channel will be forwarded updates and notifications relevant to the specific project.\n\nNote that GitHub Projects and Discord projects are separate - joining a project channel on Discord is distinct from the tasks on GitHub.",
         )
         software_projects = await self.bot.github.get_software_projects()
         self.software_projects_cache = software_projects
