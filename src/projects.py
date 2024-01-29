@@ -7,6 +7,7 @@ import discord
 from discord.ext import commands, tasks
 
 from .github_types import SoftwareProjectStatus
+from .reports import Team
 from .tasks import run_on_weekday
 from .views import MILBotView
 
@@ -25,7 +26,7 @@ class ProjectSelect(discord.ui.Select):
             ]
             unassigned_issues = [i for i in project.items if i.assignees == []]
             description = (
-                f"{len(open_issues)} issues open ({len(unassigned_issues)} unassigned)"
+                f"{len(open_issues)} issues ({len(unassigned_issues)} unassigned)"
             )
             options.append(
                 discord.SelectOption(
@@ -73,23 +74,94 @@ class SoftwareProjects(commands.Cog):
         self.update_projects.start()
         self.software_projects_cache = []
         self.remind_to_join_project.start(self)
+        self.whosonwhat.start(self)
 
     @run_on_weekday([calendar.MONDAY, calendar.THURSDAY], 0, 0)
     async def remind_to_join_project(self):
         await self.bot.wait_until_ready()
-        embed = discord.Embed(
-            title="Looking for a Software Project?",
-            color=discord.Color.teal(),
-            description="**Our records indicate you are not currently placed onto a software task.** Looking for a software project to join? Look no further! Here are some of the projects that are currently looking for contributors.\n\nRemember that you should always be working on at least one project, and optionally more if you're interested! Each project channel will be forwarded updates and notifications relevant to the specific project.",
-        )
+        assigned = set()
         for project in self.software_projects_cache:
+            for item in project.items:
+                if item.assignees:
+                    assigned.update([i.name.lower() for i in item.assignees])
+        unassigned_members = [
+            m
+            for m in self.bot.software_projects_channel.members
+            if self.bot.egn4912_role in m.roles
+            and m.display_name.lower() not in assigned
+        ]
+        for member in unassigned_members:
+            embed = discord.Embed(
+                title="Looking for a Software Project?",
+                color=discord.Color.teal(),
+                description="**Our records indicate you are not currently placed onto a software task.** Looking for a software project to join? Look no further! Here are some of the projects that are currently looking for contributors.\n\nRemember that you should always be working on at least one project, and optionally more if you're interested! Each project channel will be forwarded updates and notifications relevant to the specific project.",
+            )
+            for project in self.software_projects_cache:
+                embed.add_field(
+                    name=f"#{project.title}",
+                    value=f"{project.short_description}\n**{len(project.unassigned_items)} unassigned tasks**",
+                    inline=False,
+                )
+            embed.set_footer(
+                text="If you are receiving this message accidentally, ensure that you are still assigned a task in Github and that your name on Discord and GitHub match.",
+            )
+            view = MILBotView()
+            view.add_item(
+                discord.ui.Button(
+                    label="Go to #software-projects",
+                    url=self.bot.software_projects_channel.jump_url,
+                ),
+            )
+            await member.send(embed=embed, view=view)
+
+    @run_on_weekday([calendar.MONDAY, calendar.THURSDAY], 0, 0)
+    async def whosonwhat(self):
+        embed = discord.Embed(
+            title="Who's on what?",
+            description="List of current assignments.",
+            color=discord.Color.teal(),
+        )
+        assignments: dict[discord.Member, list[str]] = {}
+        members = [
+            m
+            for m in self.bot.software_projects_channel.members
+            if self.bot.egn4912_role in m.roles
+        ]
+        for member in members:
+            assignments[member] = []
+        for project in self.software_projects_cache:
+            for item in project.items:
+                if item.assignees and item.status != SoftwareProjectStatus.DONE:
+                    for assignee in item.assignees:
+                        member = discord.utils.find(
+                            lambda m: m.display_name.lower() == assignee.name.lower(),
+                            members,
+                        )
+                        if member:
+                            assignments[member].append(
+                                f"**#{project.title}** - {item.issue_number}",
+                            )
+
+        while assignments:
+            field_text = ""
+            first_letter = next(iter(assignments.keys())).display_name[0].upper()
+            member = next(iter(assignments.keys()))
+            while assignments:
+                next_member = next(iter(assignments.keys()))
+                status_emoji = "✅" if assignments[next_member] else "❌"
+                additional_text = f"{status_emoji} `{next_member.display_name}:` {' | '.join(assignments[next_member]) if assignments[next_member] else 'missing :('}\n"
+                if len(field_text) + len(additional_text) < 1024:
+                    assignments.pop(next_member)
+                    field_text += additional_text
+                else:
+                    break
             embed.add_field(
-                name=f"#{project.title}",
-                value=f"{project.short_description}",
+                name=f"Members {first_letter} - {member.display_name[0].upper()}",
+                value=field_text,
                 inline=False,
             )
-        view = SoftwareProjectsView(self.bot, self.software_projects_cache)
-        await self.bot.software_projects_channel.send(embed=embed, view=view)
+
+        await self.bot.team_leads_ch(Team.SOFTWARE).send(embed=embed)
 
     @tasks.loop(seconds=5)
     async def update_projects(self):

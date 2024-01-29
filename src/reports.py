@@ -243,10 +243,9 @@ class ReportsCog(commands.Cog):
         self.bot = bot
         self.post_reminder.start(self)
         self.last_week_summary.start(self)
-        self.add_no.start(self)
         self.individual_reminder.start(self)
 
-    @run_on_weekday(calendar.SATURDAY, 12, 0, check=is_active)
+    @run_on_weekday(calendar.FRIDAY, 12, 0, check=is_active)
     async def post_reminder(self):
         general_channel = self.bot.general_channel
         return await general_channel.send(
@@ -309,30 +308,6 @@ class ReportsCog(commands.Cog):
                         f"Could not send individual report reminder to {student.member}.",
                     )
 
-    @run_on_weekday(calendar.SUNDAY, 0, 0, check=is_active)
-    async def add_no(self):
-        main_worksheet = await self.bot.sh.get_worksheet(0)
-
-        # Calculate the week number and get the column
-        today = datetime.date.today()
-        week = (today - self.FIRST_DATE).days // 7 + 1
-        column = week + self.TOTAL_COLUMNS - 1  # -1 because the week has now passed
-
-        # Add a "N" to all rows that do not currently have a value
-        names = await main_worksheet.col_values(1)
-        col_vals = await main_worksheet.col_values(column)
-        name_vals = list(itertools.zip_longest(names, col_vals))
-        new_cells: list[gspread.Cell] = []
-        for i, (name, val) in enumerate(name_vals):
-            # Skip header row
-            if (i + 1) < 3:
-                continue
-            if name and not val:
-                new_cells.append(gspread.Cell(i + 1, column, "N"))
-            elif val:
-                new_cells.append(gspread.Cell(i + 1, column, val))
-        await main_worksheet.update_cells(new_cells)
-
     @run_on_weekday(calendar.MONDAY, 0, 0)
     async def last_week_summary(self):
         """
@@ -367,9 +342,14 @@ class ReportsCog(commands.Cog):
                 field_text = ""
                 first_letter = team_members[0].first_name[0]
                 member = team_members[0]
-                while len(field_text) < 900 and team_members:
-                    member = team_members.pop(0)
-                    field_text += f"{member.status_emoji} `{member.name}:` {member.report or 'missing :('}\n"
+                while team_members:
+                    next_member = team_members[0]
+                    additional_text = f"{next_member.status_emoji} `{next_member.name}:` {next_member.report or 'missing :('}\n"
+                    if len(field_text) + len(additional_text) < 1024:
+                        team_members.pop(0)
+                        field_text += additional_text
+                    else:
+                        break
                 embed.add_field(
                     name=f"Members {first_letter} - {member.first_name[0]}",
                     value=field_text,

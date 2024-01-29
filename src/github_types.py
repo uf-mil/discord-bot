@@ -1,3 +1,4 @@
+import dataclasses
 import datetime
 from enum import Enum
 from typing import Any, TypedDict
@@ -375,10 +376,20 @@ class SoftwareProjectStatus(Enum):
     DONE = "Done"
 
 
+@dataclasses.dataclass()
+class SoftwareProjectItemAssignee:
+    name: str
+    login: str
+
+    def __init__(self, properties: dict[str, str]):
+        self.name = properties["name"] or properties["login"]
+        self.login = properties["login"]
+
+
 class SoftwareProjectItem:
     issue_number: int
     issue_title: str
-    assignees: list[str]
+    assignees: list[SoftwareProjectItemAssignee]
     status: SoftwareProjectStatus | None
     due_date: datetime.datetime | None
 
@@ -401,7 +412,8 @@ class SoftwareProjectItem:
         assignee_field = self._get_field(nodes, "Assignees")
         if assignee_field:
             self.assignees = [
-                assignee["login"] for assignee in assignee_field["users"]["nodes"]
+                SoftwareProjectItemAssignee(assignee)
+                for assignee in assignee_field["users"]["nodes"]
             ]
         else:
             self.assignees = []
@@ -434,3 +446,11 @@ class SoftwareProject:
         for item in properties["items"]["nodes"]:
             item = SoftwareProjectItem(item)
             self.items.append(item)
+
+    @property
+    def unassigned_items(self) -> list[SoftwareProjectItem]:
+        return [
+            item
+            for item in self.items
+            if len(item.assignees) == 0 and item.status != SoftwareProjectStatus.DONE
+        ]

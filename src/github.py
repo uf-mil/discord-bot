@@ -128,7 +128,7 @@ class GitHub:
             query {
               viewer {
                 organization(login: "uf-mil") {
-                  projectsV2(first: 1) {
+                  projectsV2(first: 15, query: "is:open") {
                     nodes {
                       title
                       shortDescription
@@ -165,6 +165,7 @@ class GitHub:
                                 users(first: 5) {
                                   nodes {
                                     login
+                                    name
                                   }
                                 }
                                 field {
