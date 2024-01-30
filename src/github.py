@@ -199,8 +199,16 @@ class GitHub:
         for project_node in properties["data"]["viewer"]["organization"]["projectsV2"][
             "nodes"
         ]:
+            if (
+                not project_node["title"]
+                or "untitled" in project_node["title"]
+                or not project_node["shortDescription"]
+                or len(project_node["shortDescription"]) < 20
+            ):
+                continue
             project = SoftwareProject(project_node)
             projects.append(project)
+        projects.sort(key=lambda p: p.title)
         return projects
 
 
