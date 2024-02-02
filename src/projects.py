@@ -1,19 +1,19 @@
 from __future__ import annotations
 
 import calendar
+import re
 from typing import TYPE_CHECKING
 
 import discord
 from discord.ext import commands, tasks
 
-from .github_types import SoftwareProjectStatus
+from .github_types import SoftwareProject, SoftwareProjectStatus
 from .reports import Team
 from .tasks import run_on_weekday
 from .views import MILBotView
 
 if TYPE_CHECKING:
     from .bot import MILBot
-    from .github_types import SoftwareProject
 
 
 class ProjectSelect(discord.ui.Select):
@@ -97,9 +97,21 @@ class SoftwareProjects(commands.Cog):
                 description="**Our records indicate you are not currently placed onto a software task.** Looking for a software project to join? Look no further! Here are some of the projects that are currently looking for contributors.\n\nRemember that you should always be working on at least one project, and optionally more if you're interested! Each project channel will be forwarded updates and notifications relevant to the specific project.",
             )
             for project in self.software_projects_cache:
+                lead_members = []
+                for name in project.leader_names():
+                    member_named = discord.utils.find(
+                        lambda m: m.display_name.lower() == name.lower(),
+                        self.bot.software_projects_channel.members,
+                    )
+                    if member_named:
+                        lead_members.append(member_named.mention)
+                    else:
+                        lead_members.append(name)
+                leads = " | ".join(lead_members)
+                link = f"[/projects/{project.number}]({project.url})"
                 embed.add_field(
                     name=f"#{project.title}",
-                    value=f"{project.short_description}\n**{len(project.unassigned_items)} unassigned tasks**",
+                    value=f"**Leaders:** {leads}, **Link:** {link}\n{project.short_description}\n**{len(project.unassigned_items)} unassigned tasks**",
                     inline=False,
                 )
             embed.set_footer(
@@ -173,10 +185,27 @@ class SoftwareProjects(commands.Cog):
         )
         software_projects = await self.bot.github.get_software_projects()
         self.software_projects_cache = software_projects
-        for project in software_projects:
+        for project in self.software_projects_cache:
+            lead_members = []
+            for name in project.leader_names():
+                member_named = discord.utils.find(
+                    lambda m: m.display_name.lower() == name.lower(),
+                    self.bot.software_projects_channel.members,
+                )
+                if member_named:
+                    lead_members.append(member_named.mention)
+                else:
+                    lead_members.append(name)
+            leads = " | ".join(lead_members)
+            link = f"[uf-mil/projects/{project.number}]({project.url})"
+            description = re.sub(
+                SoftwareProject.LEADS_REGEX,
+                "",
+                project.short_description,
+            )
             embed.add_field(
-                name=f"#{project.title}",
-                value=f"{project.short_description}",
+                name=f"{project.emoji} `#{project.title}`",
+                value=f"* **Leaders:** {leads}\n* **Link:** {link}\n* **About:** {description}",
                 inline=False,
             )
             channel = discord.utils.get(

@@ -131,6 +131,7 @@ class GitHub:
                   projectsV2(first: 15, query: "is:open") {
                     nodes {
                       title
+                      number
                       shortDescription
                       items(first: 10) {
                         nodes {

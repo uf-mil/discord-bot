@@ -1,5 +1,6 @@
 import dataclasses
 import datetime
+import re
 from enum import Enum
 from typing import Any, TypedDict
 
@@ -433,13 +434,19 @@ class SoftwareProject:
     title: str
     emoji: str
     short_description: str
+    number: int
     items: list[SoftwareProjectItem]
+
+    LEADS_REGEX = r"\(lead: ([\w\s,]+)\)"
 
     def __init__(self, properties: dict[str, Any]):
         self.title = properties["title"]
+        self.number = properties["number"]
         self.short_description = properties["shortDescription"]
         try:
-            self.emoji = properties["shortDescription"].split(" ")[0]
+            split = properties["shortDescription"].split(" ")
+            self.emoji = split[0]
+            self.short_description = " ".join(split[1:])
         except Exception:
             self.emoji = "❓"
         self.items = []
@@ -454,3 +461,13 @@ class SoftwareProject:
             for item in self.items
             if len(item.assignees) == 0 and item.status != SoftwareProjectStatus.DONE
         ]
+
+    @property
+    def url(self) -> str:
+        return f"https://github.com/orgs/uf-mil/projects/{self.number}"
+
+    def leader_names(self) -> list[str]:
+        finds = re.findall(self.LEADS_REGEX, self.short_description)
+        if finds:
+            return [s.strip() for s in finds[0].split(",")]
+        return []
