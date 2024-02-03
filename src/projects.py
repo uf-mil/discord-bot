@@ -175,7 +175,7 @@ class SoftwareProjects(commands.Cog):
 
         await self.bot.team_leads_ch(Team.SOFTWARE).send(embed=embed)
 
-    @tasks.loop(seconds=5)
+    @tasks.loop(seconds=30)
     async def update_projects(self):
         await self.bot.wait_until_ready()
         embed = discord.Embed(

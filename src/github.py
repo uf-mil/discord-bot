@@ -144,7 +144,7 @@ class GitHub:
                               number
                             }
                           }
-                          fieldValues(first: 10){
+                          fieldValues(first: 5){
                             nodes {
                               ... on ProjectV2ItemFieldDateValue {
                                 date
@@ -163,7 +163,7 @@ class GitHub:
                                 }
                               }
                               ... on ProjectV2ItemFieldUserValue {
-                                users(first: 5) {
+                                users(first: 4) {
                                   nodes {
                                     login
                                     name
@@ -175,12 +175,12 @@ class GitHub:
                                   }
                                 }
                               }
-                                            }
+                            }
                           }
                         }
                       }
                     }
-                        }
+                  }
                 }
               }
               rateLimit {
