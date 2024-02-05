@@ -329,35 +329,25 @@ class ReportsCog(commands.Cog):
         first = first_day_of_week.strftime("%B %-d, %Y")
         last = last_day_of_week.strftime("%B %-d, %Y")
         for team in Team:
-            embed = discord.Embed(
-                title=f"Report Summary: `{first}` - `{last}`",
-                color=discord.Color.gold(),
-                description=f"Hola, {team}! Here's a summary of last week's reports. Please review progress of members from last week, including those who did not submit reports. Thank you!",
-            )
-
+            field_count = 0
             team_members = [s for s in students if s.team == team]
             if not team_members:
                 continue
-            while team_members:
-                field_text = ""
-                first_letter = team_members[0].first_name[0]
-                member = team_members[0]
-                while team_members:
-                    next_member = team_members[0]
-                    additional_text = f"{next_member.status_emoji} `{next_member.name}:` {next_member.report or 'missing :('}\n"
-                    if len(field_text) + len(additional_text) < 1024:
-                        team_members.pop(0)
-                        field_text += additional_text
-                    else:
-                        break
-                embed.add_field(
-                    name=f"Members {first_letter} - {member.first_name[0]}",
-                    value=field_text,
-                    inline=False,
+            while field_count < 25 and team_members:
+                embed = discord.Embed(
+                    title=f"Report Summary: `{first}` - `{last}`",
+                    color=discord.Color.gold(),
+                    description=f"Hola, {team}! Here's a summary of last week's reports. Please review progress of members from last week, including those who did not submit reports. Thank you!",
                 )
 
-            team_leads_ch = self.bot.team_leads_ch(team)
-            await team_leads_ch.send(embed=embed)
+                for next_member in team_members[:25]:
+                    embed.add_field(
+                        name=f"{next_member.status_emoji} `{next_member.name.title()}`",
+                        value=f"{next_member.report or 'missing :('}",
+                    )
+                    team_members.remove(next_member)
+                team_leads_ch = self.bot.team_leads_ch(team)
+                await team_leads_ch.send(embed=embed)
 
     @commands.is_owner()
     @commands.command()

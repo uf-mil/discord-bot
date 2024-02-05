@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import calendar
 import datetime
+import time
 from typing import TYPE_CHECKING
 
 import discord
@@ -36,11 +37,13 @@ class Leaders(commands.Cog):
         for task in self.bot.tasks.recurring_tasks():
             if task._func.__name__ == func_name:
                 msg = await ctx.send(
-                    f"{self.bot.loading_emoji} Running task `{func_name}`...",
+                    f"{self.bot.loading_emoji} Running task `{func_name}`... (started {discord.utils.format_dt(discord.utils.utcnow(), 'R')})",
                 )
+                start_time = time.monotonic()
                 await task.run_immediately()
+                end_time = time.monotonic()
                 await msg.edit(
-                    content=f"✅ Task `{func_name}` ran. Scheduled another instance to run at {task.next_time()}.",
+                    content=f"✅ Task `{func_name}` ran. Took `{end_time - start_time:.2f}s` to run. Scheduled another instance to run at {task.next_time()}.",
                 )
                 return
         await ctx.send(f"❌ Task `{func_name}` not found.")
