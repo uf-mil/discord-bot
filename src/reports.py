@@ -88,15 +88,9 @@ class ReportsModal(discord.ui.Modal):
         # Calculate column to log in.
         first_date = self.bot.reports_cog.FIRST_DATE
         today = datetime.date.today()
-        week = (today - first_date).days // 7 + 1
+        week = self.bot.reports_cog.date_to_column(today)
 
         # Log a Y for their square
-        print(
-            await main_worksheet.cell(
-                name_cell.row,
-                week + self.bot.reports_cog.TOTAL_COLUMNS,
-            ),
-        )
         if (
             await main_worksheet.cell(
                 name_cell.row,
@@ -173,9 +167,9 @@ class ReportsView(MILBotView):
     )
     async def submit(self, interaction: discord.Interaction, _: discord.ui.Button):
         # If button is triggered on Sunday or Monday, send error message
-        if datetime.datetime.today().weekday() in [6, 0]:
+        if datetime.datetime.today().weekday() in [0, 1]:
             return await interaction.response.send_message(
-                ":x: Weekly reports should be submitted between Tuesday and Saturday. While occasional exceptions can be made if you miss a week—simply inform your team lead—this should not become a regular occurrence. Be aware that the submission window closes promptly at 11:59pm on Saturday.",
+                ":x: Weekly reports should be submitted between Wednesday and Sunday. While occasional exceptions can be made if you miss a week—simply inform your team lead—this should not become a regular occurrence. Be aware that the submission window closes promptly at 11:59pm on Sunday.",
                 ephemeral=True,
             )
 
@@ -235,7 +229,7 @@ class ReportsCog(commands.Cog):
     TEAM_COLUMN = 5
     DISCORD_NAME_COLUMN = 6
 
-    FIRST_DATE = datetime.date(2024, 1, 14)  # TODO: Make this automatically derived
+    FIRST_DATE = datetime.date(2024, 1, 15)  # TODO: Make this automatically derived
 
     TOTAL_COLUMNS = 6
 
@@ -245,11 +239,19 @@ class ReportsCog(commands.Cog):
         self.last_week_summary.start(self)
         self.individual_reminder.start(self)
 
+    def date_to_column(self, date: datetime.date) -> int:
+        """
+        Converts a date to the relevant column number.
+
+        The column number is the number of weeks since the first date.
+        """
+        return (date - self.FIRST_DATE).days // 7 + 1
+
     @run_on_weekday(calendar.FRIDAY, 12, 0, check=is_active)
     async def post_reminder(self):
         general_channel = self.bot.general_channel
         return await general_channel.send(
-            f"{self.bot.egn4912_role.mention}\nHey everyone! Friendly reminder to submit your weekly progress reports by **tomorrow night at 11:59pm**. You can submit your reports in the {self.bot.reports_channel.mention} channel. If you have any questions, please contact your leader. Thank you!",
+            f"{self.bot.egn4912_role.mention}\nHey everyone! Friendly reminder to submit your weekly progress reports by **Sunday night at 11:59pm**. You can submit your reports in the {self.bot.reports_channel.mention} channel. If you have any questions, please contact your leader. Thank you!",
         )
 
     async def safe_col_values(
@@ -282,12 +284,12 @@ class ReportsCog(commands.Cog):
         res.sort(key=lambda s: s.first_name)
         return res
 
-    @run_on_weekday(calendar.SATURDAY, 12, 0, check=is_active)
+    @run_on_weekday(calendar.SUNDAY, 12, 0, check=is_active)
     async def individual_reminder(self):
         # Get all members who have not completed reports for the week
         await self.bot.sh.get_worksheet(0)
         today = datetime.date.today()
-        week = (today - self.FIRST_DATE).days // 7 + 1
+        week = self.date_to_column(today)
         column = week + self.TOTAL_COLUMNS
 
         students = await self.students_status(column)
@@ -317,7 +319,7 @@ class ReportsCog(commands.Cog):
 
         # Calculate the week number and get the column
         today = datetime.date.today()
-        week = (today - self.FIRST_DATE).days // 7 + 1
+        week = self.date_to_column(today)
         column = week + self.TOTAL_COLUMNS - 1  # -1 because the week has now passed
 
         # Get all members who have not completed reports for the week
