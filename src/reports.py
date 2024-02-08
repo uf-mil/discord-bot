@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import calendar
 import datetime
-import enum
 import itertools
 import logging
 from dataclasses import dataclass
-from enum import auto
 from typing import TYPE_CHECKING
 
 import discord
@@ -14,6 +12,7 @@ import gspread
 import gspread_asyncio
 from discord.ext import commands
 
+from .constants import Team
 from .tasks import run_on_weekday
 from .utils import is_active
 from .views import MILBotView
@@ -181,26 +180,6 @@ class ReportsView(MILBotView):
 
         # Send modal where user fills out report
         await interaction.response.send_modal(ReportsModal(self.bot))
-
-
-class Team(enum.Enum):
-    SOFTWARE = auto()
-    ELECTRICAL = auto()
-    MECHANICAL = auto()
-    SYSTEMS = auto()
-
-    @classmethod
-    def from_str(cls, ss_str: str) -> Team:
-        if "software" in ss_str.lower():
-            return cls.SOFTWARE
-        if "electrical" in ss_str.lower():
-            return cls.ELECTRICAL
-        if "mechanical" in ss_str.lower():
-            return cls.MECHANICAL
-        return cls.SYSTEMS
-
-    def __str__(self) -> str:
-        return self.name.title()
 
 
 @dataclass

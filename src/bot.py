@@ -17,6 +17,8 @@ from google.auth import crypt
 from google.oauth2.service_account import Credentials
 from rich.logging import RichHandler
 
+from .calendar import CalendarView
+from .constants import Team
 from .env import (
     DISCORD_TOKEN,
     GITHUB_TOKEN,
@@ -30,7 +32,7 @@ from .env import (
 from .exceptions import MILBotErrorHandler, ResourceNotFound
 from .github import GitHub
 from .projects import SoftwareProjectsView
-from .reports import ReportsCog, ReportsView, Team
+from .reports import ReportsCog, ReportsView
 from .roles import MechanicalRolesView, TeamRolesView
 from .tasks import TaskManager
 from .welcome import WelcomeView
@@ -208,6 +210,7 @@ class MILBot(commands.Bot):
         self.add_view(ReportsView(self))
         self.add_view(WelcomeView(self))
         self.add_view(SoftwareProjectsView(self, []))
+        self.add_view(CalendarView(self))
 
         agcm = gspread_asyncio.AsyncioGspreadClientManager(get_creds)
         self.agc = await agcm.authorize()
