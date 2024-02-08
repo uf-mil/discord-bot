@@ -231,10 +231,7 @@ class Calendar(commands.Cog):
         embed.add_field(
             name="__Today's Events__",
             value=capped_str(
-                [
-                    event.embed_str()
-                    for event in today_events + today_events + today_events
-                ],
+                [event.embed_str() for event in today_events],
             )
             or "No events.",
             inline=False,
