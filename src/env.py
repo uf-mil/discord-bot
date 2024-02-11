@@ -5,11 +5,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def ensure_string(name: str) -> str:
+def ensure_string(name: str, optional: bool = False) -> str:
     value = os.getenv(name)
-    if value is None:
+    if value is None and not optional:
         raise ValueError(f"Environment variable {name} is not set.")
-    return value
+    return value or ""
 
 
 GSPREAD_PRIVATE_KEY = ensure_string("GSPREAD_PRIVATE_KEY")
@@ -24,10 +24,10 @@ LEADERS_MEETING_NOTES_URL = ensure_string("MEETING_NOTES_URL")
 LEADERS_MEETING_URL = ensure_string("MEETING_URL")
 
 # Calendars
-GENERAL_CALENDAR = ensure_string("GENERAL_CALENDAR")
-SOFTWARE_MEETINGS_CALENDAR = ensure_string("SOFTWARE_MEETINGS_CALENDAR")
-SOFTWARE_OH_CALENDAR = ensure_string("SOFTWARE_OH_CALENDAR")
-ELECTRICAL_MEETINGS_CALENDAR = ensure_string("ELECTRICAL_MEETINGS_CALENDAR")
-ELECTRICAL_OH_CALENDAR = ensure_string("ELECTRICAL_OH_CALENDAR")
-MECHANICAL_MEETINGS_CALENDAR = ensure_string("MECHANICAL_MEETINGS_CALENDAR")
-MECHANICAL_OH_CALENDAR = ensure_string("MECHANICAL_OH_CALENDAR")
+GENERAL_CALENDAR = ensure_string("GENERAL_CALENDAR", True)
+SOFTWARE_MEETINGS_CALENDAR = ensure_string("SOFTWARE_MEETINGS_CALENDAR", True)
+SOFTWARE_OH_CALENDAR = ensure_string("SOFTWARE_OH_CALENDAR", True)
+ELECTRICAL_MEETINGS_CALENDAR = ensure_string("ELECTRICAL_MEETINGS_CALENDAR", True)
+ELECTRICAL_OH_CALENDAR = ensure_string("ELECTRICAL_OH_CALENDAR", True)
+MECHANICAL_MEETINGS_CALENDAR = ensure_string("MECHANICAL_MEETINGS_CALENDAR", True)
+MECHANICAL_OH_CALENDAR = ensure_string("MECHANICAL_OH_CALENDAR", True)
