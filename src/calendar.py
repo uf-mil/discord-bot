@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import logging
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -26,6 +27,9 @@ from .views import MILBotView
 
 if TYPE_CHECKING:
     from .bot import MILBot
+
+
+logger = logging.getLogger(__name__)
 
 
 class EventType(Enum):
@@ -84,7 +88,6 @@ class Event:
         )
 
     def embed_str(self) -> str:
-        print(self.title, self.team, self.team.emoji)
         return f"{self.team.emoji} {self.type.emoji()} {discord.utils.format_dt(self.start, 't')} - {discord.utils.format_dt(self.end, 't')}: **{self.title}**"
 
 
@@ -94,11 +97,11 @@ class OutlookCalendar:
 
     @property
     def ics_url(self) -> str:
-        return f"{self.url}/calendar.ics"
+        return f"{self.url}/calendar.ics" if self.url else ""
 
     @property
     def html_url(self) -> str:
-        return f"{self.url}/calendar.html"
+        return f"{self.url}/calendar.html" if self.url else ""
 
 
 class CalendarView(discord.ui.View):
@@ -176,6 +179,9 @@ class Calendar(commands.Cog):
         self.calendar.start()
 
     async def load_calendar(self, url: str, team: Team) -> list[Event]:
+        if not url:
+            logger.warn("Calendar URL is empty, not loading this calendar.")
+            return []
         response = await self.bot.session.get(url)
         self.ics = icalendar.Calendar.from_ical(await response.read())
         today = datetime.date.today()
@@ -282,8 +288,6 @@ class Calendar(commands.Cog):
             text=f"Last refreshed: {date_formatted} (took: {time_taken:.2f}s)",
         )
         last_message = [m async for m in channel.history(limit=1, oldest_first=True)]
-        for field in embed.fields:
-            print(field.name, len(field.value) if field.value else 0)
         if not last_message:
             await channel.send(embed=embed, view=CalendarView(self.bot))
         else:
