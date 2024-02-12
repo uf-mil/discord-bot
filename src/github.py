@@ -73,7 +73,7 @@ class GitHub:
     async def get_issue(self, repo_name: str, issue_number: int) -> Issue:
         url = f"https://api.github.com/repos/{repo_name}/issues/{issue_number}"
         return await self.fetch(url)
-
+    
     async def get_branches_for_commit(self, repo_name: str, hash: str) -> list[Branch]:
         url = f"https://api.github.com/repos/{repo_name}/commits/{hash}/branches-where-head"
         return await self.fetch(url)
@@ -211,6 +211,49 @@ class GitHub:
         projects.sort(key=lambda p: p.title)
         return projects
 
+    async def get_software_issues(self) -> list[Issue]:
+        query = """
+            query {
+                organization(login: "uf-mil") {
+                    issues(first: 100, states: OPEN) {
+                       edges {
+                           node {
+                               title
+                               url
+                               id
+                               body
+                               createdAt
+                               updatedAt
+                           }
+                       }
+                       
+                       pageInfo {
+                           endCursor
+                           hasNextPage
+                       } 
+                    }
+                }
+            }
+        """
+        
+        software_issues = []
+        has_next = True
+        while has_next:
+            response = await self.fetch(
+                url = "https://api.github.com/graphql",
+                method="GET",
+                data=json.dumps({"query": query}),
+            )
+            
+            for issue in response["data"]["organization"]["issues"]["pageInfo"]["edges"]["node"]:
+                software_issues.append(issue)
+            
+            has_next = response["data"]["organization"]["issues"]["pageInfo"]["hasNextPage"]    
+            if has_next:
+                url = response["data"]["organization"]["issues"]["pageInfo"]["endCursor"]
+
+        return software_issues
+        
 
 class GitHubCog(commands.Cog):
     def __init__(self, bot: MILBot):
