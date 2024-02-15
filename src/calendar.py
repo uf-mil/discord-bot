@@ -82,13 +82,28 @@ class Event:
             title=title,
             start=event.get("dtstart").dt,
             end=event.get("dtend").dt,
-            location=event.get("location").to_ical().decode("utf-8"),
+            location=event.get("location").to_ical().decode("utf-8")
+            if event.get("location")
+            else "",
             type=type,
             team=team,
         )
 
+    @property
+    def sanitized_location(self) -> str:
+        return self.location.replace("\\n", ", ")
+
+    def at_mil(self) -> bool:
+        return self.location in ("", "MALA 3001")
+
     def embed_str(self) -> str:
-        return f"{self.team.emoji} {self.type.emoji()} {discord.utils.format_dt(self.start, 't')} - {discord.utils.format_dt(self.end, 't')}: **{self.title}**"
+        location_str = (
+            f"(location: {self.sanitized_location})" if not self.at_mil() else ""
+        )
+        res = f"{self.team.emoji if self.end >= datetime.datetime.now().astimezone() else self.team.old_emoji} {self.type.emoji()} {discord.utils.format_dt(self.start, 't')} - {discord.utils.format_dt(self.end, 't')}: **{self.title}** {location_str}"
+        if self.end < datetime.datetime.now().astimezone():
+            res = f"~~{res}~~"
+        return res
 
 
 class OutlookCalendar:
@@ -202,20 +217,22 @@ class Calendar(commands.Cog):
                 return channel
         raise ValueError("No calendar channel found!")
 
-    async def update_channel_name(self, events: list[Event]) -> None:
+    def current_status(self, events: list[Event]) -> StatusChannelName:
         for event in events:
-            if event.start < discord.utils.utcnow() < event.end:
-                channel = self.calendar_channel()
-                if channel.name != StatusChannelName.OPEN.value:
-                    await channel.edit(name=StatusChannelName.OPEN.value)
-                return
+            if event.start < discord.utils.utcnow() < event.end and event.at_mil():
+                return StatusChannelName.OPEN
+        is_weekday = 0 <= datetime.datetime.now().weekday() <= 4
+        is_open_range = (
+            self.OPEN_HOURS[0] < datetime.datetime.now().time() < self.OPEN_HOURS[1]
+        )
+        if is_open_range and is_weekday:
+            return StatusChannelName.MAYBE
+        return StatusChannelName.CLOSED
+
+    async def update_channel_name(self, events: list[Event]) -> None:
         channel = self.calendar_channel()
-        if self.OPEN_HOURS[0] < datetime.datetime.now().time() < self.OPEN_HOURS[1]:
-            if channel.name != StatusChannelName.MAYBE.value:
-                await channel.edit(name=StatusChannelName.MAYBE.value)
-        else:
-            if channel.name != StatusChannelName.CLOSED.value:
-                await channel.edit(name=StatusChannelName.CLOSED.value)
+        if channel.name != (new_name := self.current_status(events).value):
+            await channel.edit(name=new_name)
 
     @tasks.loop(minutes=5)
     async def calendar(self):
@@ -224,12 +241,16 @@ class Calendar(commands.Cog):
         embed = discord.Embed(
             title="📆 Lab Calendar",
             color=discord.Color.brand_red(),
-            description="Here's the calendar for the upcoming week. If you have any questions, feel free to ask!",
+            description="Here's the calendar for the upcoming week. All events take place in the lab (`MALA 3001`) unless noted otherwise. If you have any questions, feel free to ask!",
         )
         channel = self.calendar_channel()
         events = []
+        error = []
         for calendar, team in self.calendars.items():
-            events += await self.load_calendar(calendar.ics_url, team)
+            try:
+                events += await self.load_calendar(calendar.ics_url, team)
+            except Exception:
+                error.append(calendar)
         events.sort(key=lambda x: x.start)
         today_events = [
             event for event in events if event.start.date() == datetime.date.today()
@@ -284,8 +305,9 @@ class Calendar(commands.Cog):
         # Date formatted: Feb 2, 2024 03:56PM
         date_formatted = datetime.datetime.now().strftime("%b %d, %Y %I:%M%p")
         time_taken = time.monotonic() - start_time
+        error_str = f"(failed to load {len(error)} calendar(s))" if error else ""
         embed.set_footer(
-            text=f"Last refreshed: {date_formatted} (took: {time_taken:.2f}s)",
+            text=f"Last refreshed: {date_formatted} (took: {time_taken:.2f}s) {error_str}",
         )
         last_message = [m async for m in channel.history(limit=1, oldest_first=True)]
         if not last_message:

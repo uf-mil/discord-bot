@@ -38,5 +38,15 @@ class Team(enum.Enum):
         }
         return emojis.get(self, "❓")
 
+    @property
+    def old_emoji(self) -> str:
+        emojis = {
+            self.ELECTRICAL: "<:electricalold:1207801896891322428>",
+            self.SOFTWARE: "<:softwareold:1207801920542998538>",
+            self.GENERAL: "<:allold:1207801910665416804>",
+            self.MECHANICAL: "<:mechanicalold:1207801690498273340>",
+        }
+        return emojis.get(self, "❓")
+
     def __str__(self) -> str:
         return self.name.title()
