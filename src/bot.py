@@ -195,6 +195,7 @@ class MILBot(commands.Bot):
             "src.reports",
             "src.roles",
             "src.welcome",
+            "src.testing",
         )
         for i, extension in enumerate(extensions):
             try:
