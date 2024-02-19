@@ -310,11 +310,10 @@ class ReportsCog(commands.Cog):
         first = first_day_of_week.strftime("%B %-d, %Y")
         last = last_day_of_week.strftime("%B %-d, %Y")
         for team in Team:
-            field_count = 0
             team_members = [s for s in students if s.team == team]
             if not team_members:
                 continue
-            while field_count < 25 and team_members:
+            while team_members:
                 embed = discord.Embed(
                     title=f"Report Summary: `{first}` - `{last}`",
                     color=discord.Color.gold(),
@@ -324,8 +323,11 @@ class ReportsCog(commands.Cog):
                 for next_member in team_members[:25]:
                     embed.add_field(
                         name=f"{next_member.status_emoji} `{next_member.name.title()}`",
-                        value=f"{next_member.report or 'missing :('}",
+                        value=f"{next_member.report[:1024] or 'missing :('}",
                     )
+                    if len(embed) > 6000:
+                        embed.remove_field(-1)
+                        break
                     team_members.remove(next_member)
                 team_leads_ch = self.bot.team_leads_ch(team)
                 await team_leads_ch.send(embed=embed)
