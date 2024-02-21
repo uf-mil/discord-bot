@@ -35,6 +35,7 @@ from .projects import SoftwareProjectsView
 from .reports import ReportsCog, ReportsView
 from .roles import MechanicalRolesView, TeamRolesView
 from .tasks import TaskManager
+from .testing import TestingSignUpView
 from .welcome import WelcomeView
 
 
@@ -184,6 +185,15 @@ class MILBot(commands.Bot):
         ]
         await self.change_presence(activity=random.choice(activities))
 
+    async def get_member(self, user_id: int) -> discord.Member:
+        """
+        Gets a member from the active guild, fetching them if necessary.
+        """
+        member = self.active_guild.get_member(user_id)
+        if not member:
+            member = await self.active_guild.fetch_member(user_id)
+        return member
+
     async def setup_hook(self) -> None:
         # Load extensions
         extensions = (
@@ -212,6 +222,7 @@ class MILBot(commands.Bot):
         self.add_view(WelcomeView(self))
         self.add_view(SoftwareProjectsView(self, []))
         self.add_view(CalendarView(self))
+        self.add_view(TestingSignUpView(self, ""))
 
         agcm = gspread_asyncio.AsyncioGspreadClientManager(get_creds)
         self.agc = await agcm.authorize()
