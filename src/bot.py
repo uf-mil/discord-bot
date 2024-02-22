@@ -33,7 +33,7 @@ from .exceptions import MILBotErrorHandler, ResourceNotFound
 from .github import GitHub
 from .projects import SoftwareProjectsView
 from .reports import ReportsCog, ReportsView
-from .roles import MechanicalRolesView, TeamRolesView
+from .roles import MechanicalRolesView, SummerRolesView, TeamRolesView
 from .tasks import TaskManager
 from .testing import TestingSignUpView
 from .welcome import WelcomeView
@@ -223,6 +223,7 @@ class MILBot(commands.Bot):
         self.add_view(SoftwareProjectsView(self, []))
         self.add_view(CalendarView(self))
         self.add_view(TestingSignUpView(self, ""))
+        self.add_view(SummerRolesView(self))
 
         agcm = gspread_asyncio.AsyncioGspreadClientManager(get_creds)
         self.agc = await agcm.authorize()
