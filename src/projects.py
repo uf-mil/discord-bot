@@ -84,11 +84,14 @@ class SoftwareProjects(commands.Cog):
             for item in project.items:
                 if item.assignees:
                     assigned.update([i.name.lower() for i in item.assignees])
+        col_no = self.bot.reports_cog.TOTAL_COLUMNS + 1
+        students = await self.bot.reports_cog.students_status(col_no)
         unassigned_members = [
-            m
-            for m in self.bot.software_projects_channel.members
-            if self.bot.egn4912_role in m.roles
-            and m.display_name.lower() not in assigned
+            sm.member
+            for sm in students
+            if sm.member
+            and sm.team == Team.SOFTWARE
+            and sm.name.lower() not in assigned
         ]
         for member in unassigned_members:
             embed = discord.Embed(
@@ -134,10 +137,10 @@ class SoftwareProjects(commands.Cog):
             color=discord.Color.teal(),
         )
         assignments: dict[discord.Member, list[str]] = {}
+        col_no = self.bot.reports_cog.TOTAL_COLUMNS + 1
+        students = await self.bot.reports_cog.students_status(col_no)
         members = [
-            m
-            for m in self.bot.software_projects_channel.members
-            if self.bot.egn4912_role in m.roles
+            sm.member for sm in students if sm.member and sm.team == Team.SOFTWARE
         ]
         for member in members:
             assignments[member] = []
