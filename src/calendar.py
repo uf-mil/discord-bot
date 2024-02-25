@@ -96,6 +96,9 @@ class Event:
     def at_mil(self) -> bool:
         return self.location in ("", "MALA 3001")
 
+    def upcoming(self) -> bool:
+        return self.end >= datetime.datetime.now().astimezone()
+
     def embed_str(self) -> str:
         location_str = (
             f"(location: {self.sanitized_location})" if not self.at_mil() else ""
@@ -234,6 +237,17 @@ class Calendar(commands.Cog):
         if channel.name != (new_name := self.current_status(events).value):
             await channel.edit(name=new_name)
 
+    def events_list_str(self, events: list[Event]) -> str:
+        strs = [event.embed_str() for event in events]
+        estimated_length = sum(len(s + "\n") for s in strs) + len("_... (truncated)_")
+        if estimated_length > 1024:
+            strs = [event.embed_str() for event in events if event.upcoming()]
+            if events[0].embed_str() != strs[0]:
+                # This means that the first event will not be shown, so we should
+                # mark that
+                strs.insert(0, "_... (truncated)_")
+        return capped_str(strs) or "No events scheduled."
+
     @tasks.loop(minutes=5)
     async def calendar(self):
         await self.bot.wait_until_ready()
@@ -257,10 +271,7 @@ class Calendar(commands.Cog):
         ]
         embed.add_field(
             name="__Today's Events__",
-            value=capped_str(
-                [event.embed_str() for event in today_events],
-            )
-            or "No events.",
+            value=self.events_list_str(today_events),
             inline=False,
         )
         tomorrow_events = [
@@ -270,16 +281,14 @@ class Calendar(commands.Cog):
         ]
         embed.add_field(
             name="__Tomorrow's Events__",
-            value=capped_str([event.embed_str() for event in tomorrow_events])
-            or "No events.",
+            value=self.events_list_str(tomorrow_events),
             inline=False,
         )
         two_days = datetime.date.today() + datetime.timedelta(days=2)
         two_days_events = [event for event in events if event.start.date() == two_days]
         embed.add_field(
             name=f"__{two_days.strftime('%A')}'s Events__ (in 2 days)",
-            value=capped_str([event.embed_str() for event in two_days_events])
-            or "No events.",
+            value=self.events_list_str(two_days_events),
             inline=False,
         )
         three_days = datetime.date.today() + datetime.timedelta(days=3)
@@ -288,8 +297,7 @@ class Calendar(commands.Cog):
         ]
         embed.add_field(
             name=f"__{three_days.strftime('%A')}'s Events__ (in 3 days)",
-            value=capped_str([event.embed_str() for event in three_days_events])
-            or "No events.",
+            value=self.events_list_str(three_days_events),
             inline=False,
         )
         four_days = datetime.date.today() + datetime.timedelta(days=4)
@@ -298,8 +306,7 @@ class Calendar(commands.Cog):
         ]
         embed.add_field(
             name=f"__{four_days.strftime('%A')}'s Events__ (in 4 days)",
-            value=capped_str([event.embed_str() for event in four_days_events])
-            or "No events.",
+            value=self.events_list_str(four_days_events),
             inline=False,
         )
         # Date formatted: Feb 2, 2024 03:56PM
