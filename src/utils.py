@@ -109,12 +109,14 @@ def capped_str(parts: list[str], cap: int = 1024) -> str:
     Joins the most parts possible with a new line between them. If the resulting
     length is greater than the cap length, then the remaining parts are truncated.
 
-    If the parts are capped, "_... (truncated)_" is appended to the end.
+    If the parts are capped, "_... (X after)_" is appended to the end.
     """
     result = ""
+    made_it = 0
     for part in parts:
-        if len(result) + len(part) + len("\n... (truncated)") > cap:
-            result += "_... (truncated)_"
+        if len(result) + len(part) + len("\n_... (99 after)_") > cap:
+            result += f"_... ({len(parts) - made_it} after)_"
             break
         result += part + "\n"
+        made_it += 1
     return result.strip()

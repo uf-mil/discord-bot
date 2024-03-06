@@ -238,14 +238,23 @@ class Calendar(commands.Cog):
             await channel.edit(name=new_name)
 
     def events_list_str(self, events: list[Event]) -> str:
-        strs = [event.embed_str() for event in events]
-        estimated_length = sum(len(s + "\n") for s in strs) + len("_... (truncated)_")
-        if estimated_length > 1024:
-            strs = [event.embed_str() for event in events if event.upcoming()]
-            if events[0].embed_str() != strs[0]:
-                # This means that the first event will not be shown, so we should
-                # mark that
-                strs.insert(0, "_... (truncated)_")
+        upcoming_events = [event for event in events if event.upcoming()]
+        past_events = [event for event in events if not event.upcoming()]
+
+        upcoming_strs = [event.embed_str() for event in upcoming_events]
+        strs = upcoming_strs.copy()
+        past_strs = [event.embed_str() for event in past_events][::-1]
+        max_length = 1024 - len("_... (99 before)_") - len("\n".join(upcoming_strs))
+        for event in past_strs:
+            if max_length - len(event + "\n") > 0:
+                max_length -= len(event + "\n")
+                strs.insert(0, event)
+            else:
+                strs.insert(
+                    0,
+                    f"_... ({len(past_strs) - (len(strs) - len(upcoming_strs))} before)_",
+                )
+
         return capped_str(strs) or "No events scheduled."
 
     @tasks.loop(minutes=5)
