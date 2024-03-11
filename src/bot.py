@@ -127,6 +127,7 @@ class MILBot(commands.Bot):
         if not self.change_status.is_running():
             self.change_status.start()
         await self.fetch_vars()
+        await self.reports_cog.update_report_channel.run_immediately()
 
     async def close(self):
         await self.session.close()
