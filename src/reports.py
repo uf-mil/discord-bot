@@ -154,17 +154,31 @@ class ReportsModal(discord.ui.Modal):
             )
 
 
-class ReportsView(MILBotView):
+class SubmitButton(discord.ui.Button):
     def __init__(self, bot: MILBot):
         self.bot = bot
-        super().__init__(timeout=None)
+        if not is_active():
+            super().__init__(
+                label="Reports are not currently active.",
+                style=discord.ButtonStyle.grey,
+                disabled=True,
+                custom_id="reports_view:submit",
+            )
+        elif datetime.datetime.today().weekday() in [0, 1]:
+            super().__init__(
+                label="Reports can only be submitted between Wednesday and Sunday.",
+                style=discord.ButtonStyle.red,
+                disabled=True,
+                custom_id="reports_view:submit",
+            )
+        else:
+            super().__init__(
+                label="Submit your report!",
+                style=discord.ButtonStyle.green,
+                custom_id="reports_view:submit",
+            )
 
-    @discord.ui.button(
-        label="Submit your report!",
-        style=discord.ButtonStyle.green,
-        custom_id="reports_view:submit",
-    )
-    async def submit(self, interaction: discord.Interaction, _: discord.ui.Button):
+    async def callback(self, interaction: discord.Interaction):
         # If button is triggered on Sunday or Monday, send error message
         if datetime.datetime.today().weekday() in [0, 1]:
             return await interaction.response.send_message(
@@ -180,6 +194,13 @@ class ReportsView(MILBotView):
 
         # Send modal where user fills out report
         await interaction.response.send_modal(ReportsModal(self.bot))
+
+
+class ReportsView(MILBotView):
+    def __init__(self, bot: MILBot):
+        self.bot = bot
+        super().__init__(timeout=None)
+        self.add_item(SubmitButton(bot))
 
 
 @dataclass
@@ -217,6 +238,7 @@ class ReportsCog(commands.Cog):
         self.post_reminder.start(self)
         self.last_week_summary.start(self)
         self.individual_reminder.start(self)
+        self.update_report_channel.start(self)
 
     def date_to_column(self, date: datetime.date) -> int:
         """
@@ -331,6 +353,16 @@ class ReportsCog(commands.Cog):
                     team_members.remove(next_member)
                 team_leads_ch = self.bot.team_leads_ch(team)
                 await team_leads_ch.send(embed=embed)
+
+    @run_on_weekday([calendar.MONDAY, calendar.WEDNESDAY], 0, 0)
+    async def update_report_channel(self):
+        channel_history = [m async for m in self.bot.reports_channel.history(limit=1)]
+        if not channel_history:
+            return
+
+        last_message = channel_history[0]
+        if last_message.author == self.bot.user:
+            await last_message.edit(view=ReportsView(self.bot))
 
     @commands.is_owner()
     @commands.command()
