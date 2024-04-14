@@ -229,6 +229,12 @@ class StartEmailVerificationView(MILBotView):
         button: discord.ui.Button,
     ):
         assert isinstance(interaction.user, discord.Member)
+        if self.bot.verified_role in interaction.user.roles:
+            await interaction.response.send_message(
+                "You are already verified!",
+                ephemeral=True,
+            )
+            return
         self.welcoming = self.bot.unverified_role not in interaction.user.roles
         await interaction.response.send_modal(
             EmailModal(self.bot, welcoming=self.welcoming),
