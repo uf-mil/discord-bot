@@ -48,12 +48,12 @@ class Verifier:
         logger.info(f"Generated new verification code {code} for {email}!")
         return VerificationCandidate(email, member, code, welcoming)
 
-    def send_verification_email(self, candidate: VerificationCandidate):
+    async def send_verification_email(self, candidate: VerificationCandidate):
         """
         Sends a verification email to the candidate.
         """
         messages = self._generate_message(candidate.code)
-        send_email(
+        await send_email(
             candidate.email,
             "MIL Discord Verification Code",
             *messages,
@@ -164,7 +164,7 @@ class FinishEmailVerificationView(MILBotView):
         button: discord.ui.Button,
     ):
         self.candidate.code = self.bot.verifier._generate_new_code()
-        self.bot.verifier.send_verification_email(self.candidate)
+        await self.bot.verifier.send_verification_email(self.candidate)
         new_time = discord.utils.utcnow() + datetime.timedelta(minutes=1)
         button.disabled = True
         await interaction.response.edit_message(
@@ -202,7 +202,7 @@ class EmailModal(MILBotModal):
             interaction.user,
             welcoming=self.welcoming,
         )
-        self.bot.verifier.send_verification_email(candidate)
+        await self.bot.verifier.send_verification_email(candidate)
         one_minute = discord.utils.utcnow() + datetime.timedelta(minutes=1)
         view = FinishEmailVerificationView(self.bot, candidate)
         await interaction.response.send_message(

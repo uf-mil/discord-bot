@@ -1,13 +1,14 @@
-import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+import aiosmtplib
 
 from .env import EMAIL_PASSWORD, EMAIL_USERNAME
 
 
-def send_email(receiver_email, subject, html, text) -> bool:
+async def send_email(receiver_email, subject, html, text) -> bool:
     port = 25
-    smtp_server = "smtp.ufl.edu"
+    hostname = "smtp.ufl.edu"
     sender_email = EMAIL_USERNAME
     password = EMAIL_PASSWORD
     if not sender_email or not password:
@@ -16,9 +17,9 @@ def send_email(receiver_email, subject, html, text) -> bool:
         )
 
     # message = f"Subject: {subject}\n\n{body}"
-    smtp_server = smtplib.SMTP(smtp_server, port)
-    smtp_server.starttls()
-    smtp_server.login(sender_email, password)
+    smtp_server = aiosmtplib.SMTP()
+    await smtp_server.connect(hostname=hostname, port=port)
+    await smtp_server.login(sender_email, password)
     custom_email = "bot@mil.ufl.edu"
 
     # Create a multipart message and set headers
@@ -33,6 +34,6 @@ def send_email(receiver_email, subject, html, text) -> bool:
     message.attach(part1)
     message.attach(part2)
 
-    smtp_server.sendmail(custom_email, receiver_email, message.as_string())
-    smtp_server.quit()
+    await smtp_server.sendmail(custom_email, receiver_email, message.as_string())
+    await smtp_server.quit()
     return True
