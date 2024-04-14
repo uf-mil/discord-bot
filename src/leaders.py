@@ -14,6 +14,7 @@ from discord.ext import commands
 from .env import LEADERS_MEETING_NOTES_URL, LEADERS_MEETING_URL
 from .tasks import run_on_weekday
 from .utils import is_active
+from .verification import StartEmailVerificationView
 from .views import MILBotView
 
 if TYPE_CHECKING:
@@ -118,6 +119,23 @@ class Leaders(commands.Cog):
             f"{self.bot.leaders_role.mention}",
             embed=embed,
             view=view,
+        )
+
+    @commands.command()
+    @commands.is_owner()
+    async def prepverify(self, ctx: commands.Context):
+        # Embed to allow current members to verify themselves with their email
+        # address. A recent security measure we implemented recently.
+        start_date = datetime.datetime(2024, 4, 16, 0, 0, 0)
+        two_weeks = start_date + datetime.timedelta(weeks=2)
+        embed = discord.Embed(
+            title="Required Server Verification",
+            description=f"* Starting on {discord.utils.format_dt(start_date, 'D')}, all members will need to authenticate themselves with their `ufl.edu` email address in order to maintain access to the server, for security purposes. This authentication process is short, and will only need to be completed once. You must use the `ufl.edu` email belonging to you.\n* {self.bot.alumni_role.mention} are exempt from this process. If you do not have a `ufl.edu` email address, please reach out to {self.bot.leaders_role.mention} or Dr. Schwartz for assistance.\n* All members with unauthenticated email addresses will be **removed from the server** two weeks from now, on {discord.utils.format_dt(two_weeks, 'D')}.",
+            color=discord.Color.brand_green(),
+        )
+        await ctx.send(
+            embed=embed,
+            view=StartEmailVerificationView(self.bot, welcoming=False),
         )
 
 
