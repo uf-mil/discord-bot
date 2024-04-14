@@ -135,7 +135,7 @@ class Leaders(commands.Cog):
         )
         await ctx.send(
             embed=embed,
-            view=StartEmailVerificationView(self.bot, welcoming=False),
+            view=StartEmailVerificationView(self.bot),
         )
 
 
