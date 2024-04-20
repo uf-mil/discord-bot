@@ -356,7 +356,10 @@ class ReportsCog(commands.Cog):
 
     @run_on_weekday([calendar.MONDAY, calendar.WEDNESDAY], 0, 0)
     async def update_report_channel(self):
-        channel_history = [m async for m in self.bot.reports_channel.history(limit=1)]
+        channel_history = [
+            m
+            async for m in self.bot.reports_channel.history(limit=1, oldest_first=True)
+        ]
         if not channel_history:
             return
 
