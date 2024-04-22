@@ -7,7 +7,7 @@ from .env import EMAIL_PASSWORD, EMAIL_USERNAME
 
 
 async def send_email(receiver_email, subject, html, text) -> bool:
-    port = 25
+    port = 587
     hostname = "smtp.ufl.edu"
     sender_email = EMAIL_USERNAME
     password = EMAIL_PASSWORD
