@@ -133,8 +133,8 @@ class SoftwareIssues(commands.Cog):
         self.bot = bot
         self.get_old_issues.start()
             
-    #@run_on_weekday(calendar.MONDAY, 0, 0)
-    @tasks.loop(seconds=600)
+    @run_on_weekday(calendar.MONDAY, 0, 0)
+    #@tasks.loop(seconds=600)
     async def get_old_issues(self):
         await self.bot.wait_until_ready()
         open_issues = await self.bot.github.get_software_issues() 
