@@ -127,10 +127,10 @@ class Leaders(commands.Cog):
         # Embed to allow current members to verify themselves with their email
         # address. A recent security measure we implemented recently.
         start_date = datetime.datetime(2024, 4, 16, 0, 0, 0)
-        two_weeks = start_date + datetime.timedelta(weeks=2)
+        end_date = datetime.datetime(2024, 5, 13, 0, 0, 0)
         embed = discord.Embed(
             title="Required Server Verification",
-            description=f"* Starting on {discord.utils.format_dt(start_date, 'D')}, all members will need to authenticate themselves with their `ufl.edu` email address in order to maintain access to the server, for security purposes. This authentication process is short, and will only need to be completed once. You must use the `ufl.edu` email belonging to you.\n* {self.bot.alumni_role.mention} are exempt from this process. If you do not have a `ufl.edu` email address, please reach out to {self.bot.leaders_role.mention} or Dr. Schwartz for assistance.\n* All members with unauthenticated email addresses will be **removed from the server** two weeks from now, on {discord.utils.format_dt(two_weeks, 'D')}.",
+            description=f"* Starting on {discord.utils.format_dt(start_date, 'D')}, all members will need to authenticate themselves with their `ufl.edu` email address in order to maintain access to the server, for security purposes. This authentication process is short, and will only need to be completed once. You must use the `ufl.edu` email belonging to you.\n* {self.bot.alumni_role.mention} are exempt from this process. If you do not have a `ufl.edu` email address, please reach out to {self.bot.leaders_role.mention} or Dr. Schwartz for assistance.\n* All members with unauthenticated email addresses will be **removed from the server** on the first day of Summer 2024 ({discord.utils.format_dt(end_date, 'D')}).",
             color=discord.Color.brand_green(),
         )
         await ctx.send(
