@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 from typing import TYPE_CHECKING
 
 import discord
 from discord.ext import commands
 
-from .roles import TeamRolesView
+from .verification import StartEmailVerificationView
 from .views import MILBotView
 
 if TYPE_CHECKING:
@@ -30,14 +31,11 @@ class ChangeUsernameModal(discord.ui.Modal):
 
     async def on_submit(self, interaction: discord.Interaction):
         assert isinstance(interaction.user, discord.Member)
-        await interaction.user.edit(nick=self.username_input.value)
-        view = TeamRolesView(self.bot)
-        logger.info(
-            f"Confirmed {interaction.user} with requested name {self.username_input.value}.",
-        )
+        with contextlib.suppress(discord.Forbidden):
+            await interaction.user.edit(nick=self.username_input.value)
         await interaction.response.send_message(
-            f"Nice! Your name has been set to {self.username_input.value}. Now, choose which role best describes you! This will allow you to see chats relevant to your specific team. If you aren't associated with a specific team, please choose one and we will update your roles manually later.",
-            view=view,
+            "Thanks for updating your name! Before entering the server, we will need you to authenticate yourself with a `ufl.edu` email address. Please use the button below to start the verification process. If you do not have an official ufl.edu email (alumni, sponsors, etc.), please contact a lab leader or Dr. Schwartz for manual verification.",
+            view=StartEmailVerificationView(self.bot),
             ephemeral=True,
         )
 
@@ -73,7 +71,7 @@ class WelcomeView(MILBotView):
         button: discord.ui.Button,
     ):
         await interaction.response.send_message(
-            "At this time, please use the button below to update your nickname in the server to your full chosen name, so it is easier for lab members to identify you. After joining the server, you will be unable to change your display name, and users without a full name will be removed from the server.",
+            "At this time, please use the button below to update your nickname in the server to your **full name** so it is easier for lab members to identify you. After joining the server, you will be unable to change your display name, and users without a full name will be removed from the server.",
             view=ChangeUsernameView(self.bot),
             ephemeral=True,
         )
