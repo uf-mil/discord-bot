@@ -1,11 +1,27 @@
 import os
+from typing import Literal, overload
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
-def ensure_string(name: str, optional: bool = False) -> str:
+@overload
+def ensure_string(name: str, optional: Literal[False] = False) -> str:
+    ...
+
+
+@overload
+def ensure_string(name: str, optional: Literal[True] = True) -> str | None:
+    ...
+
+
+@overload
+def ensure_string(name: str, optional: bool) -> str | None:
+    ...
+
+
+def ensure_string(name: str, optional: bool = False) -> str | None:
     value = os.getenv(name)
     if value is None and not optional:
         raise ValueError(f"Environment variable {name} is not set.")
@@ -31,3 +47,7 @@ ELECTRICAL_MEETINGS_CALENDAR = ensure_string("ELECTRICAL_MEETINGS_CALENDAR", Tru
 ELECTRICAL_OH_CALENDAR = ensure_string("ELECTRICAL_OH_CALENDAR", True)
 MECHANICAL_MEETINGS_CALENDAR = ensure_string("MECHANICAL_MEETINGS_CALENDAR", True)
 MECHANICAL_OH_CALENDAR = ensure_string("MECHANICAL_OH_CALENDAR", True)
+
+# Email
+EMAIL_USERNAME = ensure_string("EMAIL_USERNAME", True)
+EMAIL_PASSWORD = ensure_string("EMAIL_PASSWORD", True)

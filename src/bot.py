@@ -36,6 +36,7 @@ from .reports import ReportsCog, ReportsView
 from .roles import MechanicalRolesView, SummerRolesView, TeamRolesView
 from .tasks import TaskManager
 from .testing import TestingSignUpView
+from .verification import StartEmailVerificationView, Verifier
 from .welcome import WelcomeView
 
 
@@ -101,6 +102,7 @@ class MILBot(commands.Bot):
     sys_leads_role: discord.Role
     software_leads_role: discord.Role
     bot_role: discord.Role
+    verified_role: discord.Role
 
     # Cogs
     reports_cog: ReportsCog
@@ -110,6 +112,7 @@ class MILBot(commands.Bot):
     _setup: asyncio.Event
     tasks: TaskManager
     github: GitHub
+    verifier: Verifier
 
     def __init__(self):
         super().__init__(
@@ -120,6 +123,7 @@ class MILBot(commands.Bot):
         )
         self.tasks = TaskManager(self)
         self._setup = asyncio.Event()
+        self.verifier = Verifier()
 
     async def on_ready(self):
         print("Logged on as", self.user)
@@ -225,6 +229,7 @@ class MILBot(commands.Bot):
         self.add_view(CalendarView(self))
         self.add_view(TestingSignUpView(self, ""))
         self.add_view(SummerRolesView(self))
+        self.add_view(StartEmailVerificationView(self))
 
         agcm = gspread_asyncio.AsyncioGspreadClientManager(get_creds)
         self.agc = await agcm.authorize()
@@ -323,6 +328,27 @@ class MILBot(commands.Bot):
         )
         assert isinstance(bot_role, discord.Role)
         self.bot_role = bot_role
+
+        verified_role = discord.utils.get(
+            self.active_guild.roles,
+            name="Verified",
+        )
+        assert isinstance(verified_role, discord.Role)
+        self.verified_role = verified_role
+
+        unverified_role = discord.utils.get(
+            self.active_guild.roles,
+            name="Unverified",
+        )
+        assert isinstance(unverified_role, discord.Role)
+        self.unverified_role = unverified_role
+
+        alumni_role = discord.utils.get(
+            self.active_guild.roles,
+            name="Alumni",
+        )
+        assert isinstance(alumni_role, discord.Role)
+        self.alumni_role = alumni_role
 
         reports_cog = self.get_cog("ReportsCog")
         if not reports_cog:

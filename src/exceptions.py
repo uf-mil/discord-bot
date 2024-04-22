@@ -129,7 +129,7 @@ class MILBotErrorHandler:
     async def handle_interaction_exception(
         self,
         interaction: discord.Interaction[MILBot],
-        error: app_commands.AppCommandError,
+        error: Exception,
     ) -> None:
         # For commands on cooldown, delete message after delay
         message, delay = self.error_message(error)
