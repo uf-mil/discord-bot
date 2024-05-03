@@ -47,7 +47,7 @@ class AnonymousReportModal(MILBotModal):
 
             Replies to this email will not be received. Please address any concerns with the appropriate leadership team."""
             await send_email(
-                "cbrown14@ufl.edu",
+                "ems@ufl.edu",
                 "New Anonymous Report Received",
                 html,
                 text,

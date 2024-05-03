@@ -205,6 +205,9 @@ class Leaders(commands.Cog):
             We treat all submissions with the utmost seriousness and respect. When filing your report, you have the option to select who will receive and review this information. To help us address your concerns most effectively, please provide as much detail as possible in your submission.""",
             color=discord.Color.from_rgb(249, 141, 139),
         )
+        embed.set_footer(
+            text="Our commitment to your privacy is transparent—feel free to review our source code on GitHub.",
+        )
         view = AnonymousReportView(self.bot)
         await ctx.send(
             embed=embed,
