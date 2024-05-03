@@ -360,6 +360,13 @@ class MILBot(commands.Bot):
         assert isinstance(alumni_role, discord.Role)
         self.alumni_role = alumni_role
 
+        away_role = discord.utils.get(
+            self.active_guild.roles,
+            name="Away from MIL",
+        )
+        assert isinstance(away_role, discord.Role)
+        self.away_role = away_role
+
         reports_cog = self.get_cog("ReportsCog")
         if not reports_cog:
             raise ResourceNotFound("Reports cog not found.")
