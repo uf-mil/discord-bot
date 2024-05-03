@@ -14,6 +14,7 @@ from discord.ext import commands
 
 from .anonymous import AnonymousReportView
 from .env import LEADERS_MEETING_NOTES_URL, LEADERS_MEETING_URL
+from .github import GitHubInviteView
 from .tasks import run_on_weekday
 from .utils import is_active
 from .verification import StartEmailVerificationView
@@ -224,6 +225,18 @@ class Leaders(commands.Cog):
             You can use the button below to toggle your away status on and off. Enjoy your break!""",
             color=self.bot.away_role.color,
         )
+        await ctx.send(embed=embed, view=view)
+        await ctx.message.delete()
+
+    @commands.command()
+    @commands.is_owner()
+    async def prepgithub(self, ctx: commands.Context):
+        embed = discord.Embed(
+            title="Invite Members to GitHub",
+            description="Use the following buttons to invite members to the software or electrical GitHub organizations. Please ensure that the member has a GitHub account before inviting them.",
+            color=discord.Color.light_gray(),
+        )
+        view = GitHubInviteView(self.bot)
         await ctx.send(embed=embed, view=view)
         await ctx.message.delete()
 
