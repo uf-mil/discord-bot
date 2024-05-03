@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 import discord
 from discord.ext import commands
 
+from .anonymous import AnonymousReportView
 from .env import LEADERS_MEETING_NOTES_URL, LEADERS_MEETING_URL
 from .tasks import run_on_weekday
 from .utils import is_active
@@ -137,6 +138,23 @@ class Leaders(commands.Cog):
             embed=embed,
             view=StartEmailVerificationView(self.bot),
         )
+
+    @commands.command()
+    @commands.is_owner()
+    async def prepanonymous(self, ctx: commands.Context):
+        embed = discord.Embed(
+            title="File an Anonymous Report",
+            description="""Your voice matters to us. If you have feedback or concerns about your experience at MIL, please feel comfortable using our anonymous reporting tool. By clicking the button below, you can file a report without revealing your identity, ensuring your privacy and safety.
+
+            We treat all submissions with the utmost seriousness and respect. When filing your report, you have the option to select who will receive and review this information. To help us address your concerns most effectively, please provide as much detail as possible in your submission.""",
+            color=discord.Color.from_rgb(249, 141, 139),
+        )
+        view = AnonymousReportView(self.bot)
+        await ctx.send(
+            embed=embed,
+            view=view,
+        )
+        await ctx.message.delete()
 
 
 async def setup(bot: MILBot):

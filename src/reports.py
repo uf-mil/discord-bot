@@ -252,7 +252,7 @@ class ReportsCog(commands.Cog):
     async def post_reminder(self):
         general_channel = self.bot.general_channel
         return await general_channel.send(
-            f"{self.bot.egn4912_role.mention}\nHey everyone! Friendly reminder to submit your weekly progress reports by **Sunday night at 11:59pm**. You can submit your reports in the {self.bot.reports_channel.mention} channel. If you have any questions, please contact your leader. Thank you!",
+            f"{self.bot.egn4912_role.mention}\nHey everyone! Friendly reminder to submit your weekly progress reports by **Sunday night at 11:59pm**. You can submit your reports in the {self.bot.member_services_channel.mention} channel. If you have any questions, please contact your leader. Thank you!",
         )
 
     async def safe_col_values(
@@ -303,7 +303,7 @@ class ReportsCog(commands.Cog):
             if student.member and not student.report:
                 try:
                     await student.member.send(
-                        f"Hey **{student.first_name}**! It's your friendly uf-mil-bot here. I noticed you haven't submitted your weekly MIL report yet. Please submit it in the {self.bot.reports_channel.mention} channel by {discord.utils.format_dt(deadline_tonight, 't')} tonight. Thank you!",
+                        f"Hey **{student.first_name}**! It's your friendly uf-mil-bot here. I noticed you haven't submitted your weekly MIL report yet. Please submit it in the {self.bot.member_services_channel.mention} channel by {discord.utils.format_dt(deadline_tonight, 't')} tonight. Thank you!",
                     )
                     logger.info(f"Sent individual report reminder to {student.member}.")
                 except discord.Forbidden:
@@ -358,7 +358,10 @@ class ReportsCog(commands.Cog):
     async def update_report_channel(self):
         channel_history = [
             m
-            async for m in self.bot.reports_channel.history(limit=1, oldest_first=True)
+            async for m in self.bot.member_services_channel.history(
+                limit=1,
+                oldest_first=True,
+            )
         ]
         if not channel_history:
             return

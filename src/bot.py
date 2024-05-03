@@ -17,6 +17,7 @@ from google.auth import crypt
 from google.oauth2.service_account import Credentials
 from rich.logging import RichHandler
 
+from .anonymous import AnonymousReportView
 from .calendar import CalendarView
 from .constants import Team
 from .env import (
@@ -88,10 +89,11 @@ class MILBot(commands.Bot):
     leaders_channel: discord.TextChannel
     leave_channel: discord.TextChannel
     general_channel: discord.TextChannel
-    reports_channel: discord.TextChannel
+    member_services_channel: discord.TextChannel
     errors_channel: discord.TextChannel
     software_projects_channel: discord.TextChannel
     software_category_channel: discord.CategoryChannel
+    operations_leaders_channel: discord.TextChannel
 
     # Emojis
     loading_emoji: str
@@ -230,6 +232,7 @@ class MILBot(commands.Bot):
         self.add_view(TestingSignUpView(self, ""))
         self.add_view(SummerRolesView(self))
         self.add_view(StartEmailVerificationView(self))
+        self.add_view(AnonymousReportView(self))
 
         agcm = gspread_asyncio.AsyncioGspreadClientManager(get_creds)
         self.agc = await agcm.authorize()
@@ -258,12 +261,12 @@ class MILBot(commands.Bot):
         assert isinstance(general_channel, discord.TextChannel)
         self.general_channel = general_channel
 
-        reports_channel = discord.utils.get(
+        member_services_channel = discord.utils.get(
             self.active_guild.text_channels,
-            name="reports",
+            name="member-services",
         )
-        assert isinstance(reports_channel, discord.TextChannel)
-        self.reports_channel = reports_channel
+        assert isinstance(member_services_channel, discord.TextChannel)
+        self.member_services_channel = member_services_channel
 
         leaders_channel = discord.utils.get(
             self.active_guild.text_channels,
@@ -271,6 +274,13 @@ class MILBot(commands.Bot):
         )
         assert isinstance(leaders_channel, discord.TextChannel)
         self.leaders_channel = leaders_channel
+
+        operations_leaders_channel = discord.utils.get(
+            self.active_guild.text_channels,
+            name="operations-leadership",
+        )
+        assert isinstance(operations_leaders_channel, discord.TextChannel)
+        self.operations_leaders_channel = operations_leaders_channel
 
         errors_channel = discord.utils.get(
             self.active_guild.text_channels,
