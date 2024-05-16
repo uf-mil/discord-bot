@@ -24,7 +24,6 @@ class VerificationCandidate:
     email: str
     member: discord.Member
     code: int
-    welcoming: bool
 
 
 class Verifier:
@@ -38,15 +37,13 @@ class Verifier:
         self,
         email: str,
         member: discord.Member,
-        *,
-        welcoming: bool,
     ) -> VerificationCandidate:
         """
         Requests a verification for the given email and member.
         """
         code = self._generate_new_code()
         logger.info(f"Generated new verification code {code} for {email}!")
-        return VerificationCandidate(email, member, code, welcoming)
+        return VerificationCandidate(email, member, code)
 
     async def send_verification_email(self, candidate: VerificationCandidate):
         """
@@ -101,26 +98,17 @@ class VerificationCodeModal(MILBotModal):
             return
 
         roles = set(interaction.user.roles)
-        roles.add(self.bot.verified_role)
-        roles.discard(self.bot.unverified_role)
         await interaction.user.edit(
             roles=list(roles),
         )
         logger.info(
             f"Completed verification process for {interaction.user} with email {self.candidate.email}!",
         )
-        if not self.candidate.welcoming:
-            await interaction.response.send_message(
-                "Your email has been successfully verified! Thank you so much!",
-                ephemeral=True,
-            )
-            return
-        else:
-            await interaction.response.send_message(
-                "Thanks for verifying yourself! You're almost done (we promise), but one last step! Choose one or two roles that best describe your interests in being a part of MIL. These will allow you to access specific channels and resources that are relevant to you. If you're not sure, you can always change your roles later. Click the button below to get started!",
-                ephemeral=True,
-                view=TeamRolesView(self.bot),
-            )
+        await interaction.response.send_message(
+            "Thanks for verifying yourself! You're almost done (we promise), but one last step! Choose one or two roles that best describe your interests in being a part of MIL. These will allow you to access specific channels and resources that are relevant to you. If you're not sure, you can always change your roles later. Click the button below to get started!",
+            ephemeral=True,
+            view=TeamRolesView(self.bot),
+        )
 
 
 class FinishEmailVerificationView(MILBotView):
@@ -181,9 +169,8 @@ class EmailModal(MILBotModal):
         placeholder="albert.gator@ufl.edu",
     )
 
-    def __init__(self, bot: MILBot, *, welcoming: bool):
+    def __init__(self, bot: MILBot):
         self.bot = bot
-        self.welcoming = welcoming
         super().__init__(title="Enter your email")
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -200,7 +187,6 @@ class EmailModal(MILBotModal):
         candidate = self.bot.verifier.request_verification(
             self.email.value,
             interaction.user,
-            welcoming=self.welcoming,
         )
         await self.bot.verifier.send_verification_email(candidate)
         one_minute = discord.utils.utcnow() + datetime.timedelta(minutes=1)
@@ -229,13 +215,6 @@ class StartEmailVerificationView(MILBotView):
         button: discord.ui.Button,
     ):
         assert isinstance(interaction.user, discord.Member)
-        if self.bot.verified_role in interaction.user.roles:
-            await interaction.response.send_message(
-                "You are already verified!",
-                ephemeral=True,
-            )
-            return
-        self.welcoming = self.bot.unverified_role not in interaction.user.roles
         await interaction.response.send_modal(
-            EmailModal(self.bot, welcoming=self.welcoming),
+            EmailModal(self.bot),
         )
