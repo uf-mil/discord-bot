@@ -34,7 +34,7 @@ from .exceptions import MILBotErrorHandler, ResourceNotFound
 from .github import GitHub, GitHubInviteView
 from .leaders import AwayView
 from .projects import SoftwareProjectsView
-from .reports import ReportsCog, ReportsView
+from .reports import ReportsCog, ReportsView, StartReviewView
 from .roles import MechanicalRolesView, SummerRolesView, TeamRolesView
 from .tasks import TaskManager
 from .testing import TestingSignUpView
@@ -234,6 +234,7 @@ class MILBot(commands.Bot):
         self.add_view(AnonymousReportView(self))
         self.add_view(GitHubInviteView(self))
         self.add_view(AwayView(self))
+        self.add_view(StartReviewView(self))
 
         agcm = gspread_asyncio.AsyncioGspreadClientManager(get_creds)
         self.agc = await agcm.authorize()
@@ -380,6 +381,17 @@ class MILBot(commands.Bot):
             "https://media1.tenor.com/m/ogsH7Ailje8AAAAd/cat-funny-cat.gif",
             "https://media1.giphy.com/media/h6AMD4GXFxO2k/giphy.gif",
             "https://media1.tenor.com/m/CtS49WH3D0AAAAAd/roomba-riding.gif",
+        ]
+        async with self.session.get(random.choice(gifs)) as resp:
+            if resp.status != 200:
+                raise ResourceNotFound("Cat gif not found.")
+            return discord.File(BytesIO(await resp.read()), filename="cat.gif")
+
+    async def good_job_gif(self) -> discord.File:
+        gifs = [
+            "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExb3BqbnlzaXBmODdxMzRkeHFxYWg1N3NoM3A4czh3aGo2NHhmNGRtYSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/ktfInKGOVkdQtwJy9h/giphy.gif",
+            "https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExdjRyOGJjY3cxdTUzb2gycXlmcW1lZ2ZsYXh3aGxjaDY1cTNyMzRnNiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/UjCXeFnYcI2R2/giphy.gif",
+            "https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExMXo1dHdxem04N2M4ZXJhaTlnb25mYTZsMmtjMGFyMWJweDFleG03ZCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/8pR7lPuRZzTXVtWlTF/giphy.gif",
         ]
         async with self.session.get(random.choice(gifs)) as resp:
             if resp.status != 200:
