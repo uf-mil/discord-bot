@@ -200,9 +200,9 @@ class Leaders(commands.Cog):
     async def prepanonymous(self, ctx: commands.Context):
         embed = discord.Embed(
             title="File an Anonymous Report",
-            description="""Your voice matters to us. If you have feedback or concerns about your experience at MIL, please feel comfortable using our anonymous reporting tool. By clicking the button below, you can file a report without revealing your identity, ensuring your privacy and safety.
-
-            We treat all submissions with the utmost seriousness and respect. When filing your report, you have the option to select who will receive and review this information. To help us address your concerns most effectively, please provide as much detail as possible in your submission.""",
+            description="Your voice matters to us. If you have feedback or concerns about your experience at MIL, please feel comfortable using our anonymous reporting tool. By clicking the button below, you can file a report without revealing your identity, ensuring your privacy and safety."
+            + "\n\n"
+            + "We treat all submissions with the utmost seriousness and respect. When filing your report, you have the option to select who will receive and review this information. To help us address your concerns most effectively, please provide as much detail as possible in your submission.",
             color=discord.Color.from_rgb(249, 141, 139),
         )
         embed.set_footer(
@@ -221,11 +221,7 @@ class Leaders(commands.Cog):
         view = AwayView(self.bot)
         embed = discord.Embed(
             title="Take a Short Break",
-            description="""As leaders, it's important to take breaks and recharge. If you're planning to take a short break, you can mark yourself as away to let others know. When you're ready to return, you can toggle this status off.
-
-            During your break, members who ping you will be notified that you're away and unable to assist in MIL efforts until you return. This is a great way to ensure you're not disturbed during your break.
-
-            You can use the button below to toggle your away status on and off. Enjoy your break!""",
+            description="As leaders, it's important to take breaks and recharge. If you're planning to take a short break, you can mark yourself as away to let others know. When you're ready to return, you can toggle this status off.\n\nDuring your break, members who ping you will be notified that you're away and unable to assist in MIL efforts until you return. This is a great way to ensure you're not disturbed during your break.\n\nYou can use the button below to toggle your away status on and off. Enjoy your break!",
             color=self.bot.away_role.color,
         )
         await ctx.send(embed=embed, view=view)
