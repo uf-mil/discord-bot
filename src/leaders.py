@@ -24,8 +24,8 @@ if TYPE_CHECKING:
     from .bot import MILBot
 
 
-MEETING_TIME = datetime.time(19, 0, 0)
-MEETING_DAY = calendar.TUESDAY
+MEETING_TIME = datetime.time(16, 30, 0)
+MEETING_DAY = calendar.MONDAY
 
 
 class AwayView(MILBotView):
