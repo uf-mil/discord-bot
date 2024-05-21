@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import aiohttp
 import discord
-from discord import app_commands
 from discord.ext import commands
 
 from .env import GITHUB_TOKEN
@@ -23,12 +22,107 @@ from .github_types import (
     SoftwareProject,
     User,
 )
+from .views import MILBotModal, MILBotView
 
 if TYPE_CHECKING:
     from .bot import MILBot
 
 
 logger = logging.getLogger(__name__)
+
+
+class GitHubUsernameModal(MILBotModal):
+
+    username = discord.ui.TextInput(label="Username")
+
+    def __init__(self, bot: MILBot, org_name: Literal["uf-mil", "uf-mil-electrical"]):
+        self.bot = bot
+        self.org_name = org_name
+        super().__init__(title="GitHub Username")
+
+    async def on_submit(self, interaction: discord.Interaction):
+        """
+        Invite a user to a MIL GitHub organization.
+
+        Args:
+            username: The username of the user to invite.
+            org_name: The name of the organization to invite the user to.
+        """
+        username = self.username.value
+        # Ensure that the specified username is actually a GitHub user, and get
+        # their user object
+        try:
+            user = await self.bot.github.get_user(username)
+        except aiohttp.ClientResponseError as e:
+            if e.status == 404:
+                await interaction.response.send_message(
+                    f"Failed to find user with username {username}.",
+                    ephemeral=True,
+                )
+            raise e
+
+        try:
+            # If the org is uf-mil, invite to the "Developers" team
+            if self.org_name == "uf-mil":
+                team = await self.bot.github.get_team(self.org_name, "developers")
+                await self.bot.github.invite_user_to_org(
+                    user["id"],
+                    self.org_name,
+                    team["id"],
+                )
+            else:
+                await self.bot.github.invite_user_to_org(user["id"], self.org_name)
+            await interaction.response.send_message(
+                f"Successfully invited {username} to {self.org_name}.",
+                ephemeral=True,
+            )
+        except aiohttp.ClientResponseError as e:
+            if e.status == 422:
+                await interaction.response.send_message(
+                    "Validaton failed, the user might already be in the organization.",
+                    ephemeral=True,
+                )
+                return
+        except Exception:
+            await interaction.response.send_message(
+                f"Failed to invite {username} to {self.org_name}.",
+                ephemeral=True,
+            )
+            logger.exception(
+                f"Failed to invite username {username} to {self.org_name}.",
+            )
+
+
+class GitHubInviteView(MILBotView):
+    def __init__(self, bot: MILBot):
+        self.bot = bot
+        super().__init__(timeout=None)
+
+    @discord.ui.button(
+        label="Invite to uf-mil",
+        style=discord.ButtonStyle.secondary,
+        custom_id="github_invite:software",
+    )
+    async def invite_to_uf_mil(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button,
+    ):
+        await interaction.response.send_modal(GitHubUsernameModal(self.bot, "uf-mil"))
+
+    @discord.ui.button(
+        label="Invite to uf-mil-electrical",
+        style=discord.ButtonStyle.secondary,
+        custom_id="github_invite:electrical",
+    )
+    async def invite_to_uf_mil_electrical(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button,
+    ):
+        await interaction.response.send_modal(
+            GitHubUsernameModal(self.bot, "uf-mil-electrical"),
+        )
 
 
 class GitHub:
@@ -64,6 +158,7 @@ class GitHub:
                 logger.error(
                     f"Error fetching GitHub url {url}: {await response.json()}",
                 )
+            response.raise_for_status()
             return await response.json()
 
     async def get_repo(self, repo_name: str) -> Repository:
@@ -384,54 +479,6 @@ class GitHubCog(commands.Cog):
             for match in matches:
                 issue = await self.github.get_issue("uf-mil/mil", int(match))
                 await message.reply(embed=self.get_issue_or_pull(issue))
-
-    @app_commands.command()
-    @app_commands.guild_only()
-    @app_commands.default_permissions(manage_messages=True)
-    async def invite(
-        self,
-        interaction: discord.Interaction,
-        username: str,
-        org_name: Literal["uf-mil", "uf-mil-electrical"],
-    ):
-        """
-        Invite a user to a MIL GitHub organization.
-
-        Args:
-            username: The username of the user to invite.
-            org_name: The name of the organization to invite the user to.
-        """
-        # Use the Github class object to send an invite to the user
-        if org_name not in ["uf-mil", "uf-mil-electrical"]:
-            await interaction.response.send_message("Invalid organization name.")
-            return
-
-        # Ensure that the specified username is actually a GitHub user, and get
-        # their user object
-        try:
-            user = await self.github.get_user(username)
-        except aiohttp.ClientResponseError as e:
-            if e.status == 404:
-                await interaction.response.send_message(
-                    f"Failed to find user with username {username}.",
-                )
-            raise e
-
-        try:
-            # If the org is uf-mil, invite to the "Developers" team
-            if org_name == "uf-mil":
-                team = await self.github.get_team(org_name, "developers")
-                await self.github.invite_user_to_org(user["id"], org_name, team["id"])
-            else:
-                await self.github.invite_user_to_org(user["id"], org_name)
-            await interaction.response.send_message(
-                f"Successfully invited {username} to {org_name}.",
-            )
-        except Exception:
-            await interaction.response.send_message(
-                f"Failed to invite {username} to {org_name}.",
-            )
-            logger.exception(f"Failed to invite username {username} to {org_name}.")
 
 
 async def setup(bot: MILBot):

@@ -7,26 +7,39 @@ from enum import auto
 SEMESTERS = [
     (datetime.date(2023, 8, 23), datetime.date(2023, 12, 6)),
     (datetime.date(2024, 1, 8), datetime.date(2024, 4, 28)),
-    (datetime.date(2024, 5, 13), datetime.date(2024, 8, 9)),
+    (datetime.date(2024, 5, 20), datetime.date(2024, 7, 29)),
 ]
+SCHWARTZ_EMAIL = "ems@ufl.edu"
+
+
+def semester_given_date(
+    date: datetime.datetime,
+    *,
+    next_semester: bool = False,
+) -> tuple[datetime.date, datetime.date] | None:
+    for semester in SEMESTERS:
+        if semester[0] <= date.date() <= semester[1]:
+            return semester
+        if next_semester and date.date() < semester[0]:
+            return semester
+    return None
 
 
 class Team(enum.Enum):
     SOFTWARE = auto()
     ELECTRICAL = auto()
     MECHANICAL = auto()
-    SYSTEMS = auto()
     GENERAL = auto()
 
     @classmethod
     def from_str(cls, ss_str: str) -> Team:
-        if "software" in ss_str.lower():
+        if "software" in ss_str.lower() or "S" in ss_str:
             return cls.SOFTWARE
-        if "electrical" in ss_str.lower():
+        elif "electrical" in ss_str.lower() or "E" in ss_str:
             return cls.ELECTRICAL
-        if "mechanical" in ss_str.lower():
+        elif "mechanical" in ss_str.lower() or "M" in ss_str:
             return cls.MECHANICAL
-        return cls.SYSTEMS
+        return cls.GENERAL
 
     @property
     def emoji(self) -> str:

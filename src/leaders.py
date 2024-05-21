@@ -9,9 +9,12 @@ import time
 from typing import TYPE_CHECKING
 
 import discord
+from discord.app_commands import NoPrivateMessage
 from discord.ext import commands
 
+from .anonymous import AnonymousReportView
 from .env import LEADERS_MEETING_NOTES_URL, LEADERS_MEETING_URL
+from .github import GitHubInviteView
 from .tasks import run_on_weekday
 from .utils import is_active
 from .verification import StartEmailVerificationView
@@ -23,6 +26,38 @@ if TYPE_CHECKING:
 
 MEETING_TIME = datetime.time(19, 0, 0)
 MEETING_DAY = calendar.TUESDAY
+
+
+class AwayView(MILBotView):
+    def __init__(self, bot: MILBot):
+        self.bot = bot
+        super().__init__(timeout=None)
+
+    @discord.ui.button(
+        label="Toggle Away",
+        custom_id="away:toggle",
+        style=discord.ButtonStyle.primary,
+    )
+    async def toggle_away(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button,
+    ):
+        member = interaction.user
+        if not isinstance(member, discord.Member):
+            raise NoPrivateMessage
+        if self.bot.away_role in member.roles:
+            await member.remove_roles(self.bot.away_role)
+            await interaction.response.send_message(
+                "You are no longer marked as away. Welcome back!",
+                ephemeral=True,
+            )
+        else:
+            await member.add_roles(self.bot.away_role)
+            await interaction.response.send_message(
+                f"You are now marked as {self.bot.away_role.mention}. Enjoy your break!",
+                ephemeral=True,
+            )
 
 
 class Leaders(commands.Cog):
@@ -121,6 +156,28 @@ class Leaders(commands.Cog):
             view=view,
         )
 
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        # Check that leaders mentioned are not away - if they are, remind the poster
+        # that they are away.
+        if message.author.bot:
+            return
+
+        mentioned = message.mentions
+        for member in mentioned:
+            if (
+                isinstance(member, discord.Member)
+                and self.bot.away_role in member.roles
+            ):
+                delay_seconds = 15
+                delete_at = message.created_at + datetime.timedelta(
+                    seconds=delay_seconds,
+                )
+                await message.reply(
+                    f"{member.mention} is currently away from MIL for a temporary break, and may not respond immediately. Please consider reaching out to another leader or wait for their return. (deleting this message {discord.utils.format_dt(delete_at, 'R')})",
+                    delete_after=delay_seconds,
+                )
+
     @commands.command()
     @commands.is_owner()
     async def prepverify(self, ctx: commands.Context):
@@ -137,6 +194,50 @@ class Leaders(commands.Cog):
             embed=embed,
             view=StartEmailVerificationView(self.bot),
         )
+
+    @commands.command()
+    @commands.is_owner()
+    async def prepanonymous(self, ctx: commands.Context):
+        embed = discord.Embed(
+            title="File an Anonymous Report",
+            description="Your voice matters to us. If you have feedback or concerns about your experience at MIL, please feel comfortable using our anonymous reporting tool. By clicking the button below, you can file a report without revealing your identity, ensuring your privacy and safety."
+            + "\n\n"
+            + "We treat all submissions with the utmost seriousness and respect. When filing your report, you have the option to select who will receive and review this information. To help us address your concerns most effectively, please provide as much detail as possible in your submission.",
+            color=discord.Color.from_rgb(249, 141, 139),
+        )
+        embed.set_footer(
+            text="Our commitment to your privacy is transparent—feel free to review our source code on GitHub.",
+        )
+        view = AnonymousReportView(self.bot)
+        await ctx.send(
+            embed=embed,
+            view=view,
+        )
+        await ctx.message.delete()
+
+    @commands.command()
+    @commands.is_owner()
+    async def prepaway(self, ctx: commands.Context):
+        view = AwayView(self.bot)
+        embed = discord.Embed(
+            title="Take a Short Break",
+            description="As leaders, it's important to take breaks and recharge. If you're planning to take a short break, you can mark yourself as away to let others know. When you're ready to return, you can toggle this status off.\n\nDuring your break, members who ping you will be notified that you're away and unable to assist in MIL efforts until you return. This is a great way to ensure you're not disturbed during your break.\n\nYou can use the button below to toggle your away status on and off. Enjoy your break!",
+            color=self.bot.away_role.color,
+        )
+        await ctx.send(embed=embed, view=view)
+        await ctx.message.delete()
+
+    @commands.command()
+    @commands.is_owner()
+    async def prepgithub(self, ctx: commands.Context):
+        embed = discord.Embed(
+            title="Invite Members to GitHub",
+            description="Use the following buttons to invite members to the software or electrical GitHub organizations. Please ensure that the member has a GitHub account before inviting them.",
+            color=discord.Color.light_gray(),
+        )
+        view = GitHubInviteView(self.bot)
+        await ctx.send(embed=embed, view=view)
+        await ctx.message.delete()
 
 
 async def setup(bot: MILBot):
