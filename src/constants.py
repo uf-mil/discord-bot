@@ -39,7 +39,16 @@ class Team(enum.Enum):
             return cls.ELECTRICAL
         elif "mechanical" in ss_str.lower() or "M" in ss_str:
             return cls.MECHANICAL
-        return cls.GENERAL
+        raise ValueError(f"Invalid subteam string: {ss_str}")
+
+    @property
+    def sheet_str(self) -> str:
+        return {
+            self.ELECTRICAL: "E",
+            self.SOFTWARE: "S",
+            self.GENERAL: "G",
+            self.MECHANICAL: "M",
+        }[self]
 
     @property
     def emoji(self) -> str:
