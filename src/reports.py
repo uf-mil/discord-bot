@@ -82,6 +82,13 @@ class WeekColumn:
         end_date = start_date + datetime.timedelta(days=6)
         return start_date, end_date
 
+    @property
+    def closes_at(self) -> datetime.datetime:
+        return datetime.datetime.combine(
+            self.date_range[1],
+            datetime.time(23, 59, 59),
+        )
+
     @classmethod
     def from_date(cls, date: datetime.date):
         col_offset = (date - cls._start_date()).days // 7
@@ -379,6 +386,7 @@ class ReportsModal(discord.ui.Modal):
         label="Report",
         placeholder="1-2 sentences describing your progress this week",
         style=discord.TextStyle.long,
+        max_length=1000,
     )
 
     def __init__(self, bot: MILBot):
@@ -394,7 +402,9 @@ class ReportsModal(discord.ui.Modal):
 
         # Validate input
         # Check that team is one of the three
-        if self.team.value.lower() not in ["electrical", "mechanical", "software"]:
+        try:
+            team = Team.from_str(self.team.value)
+        except ValueError:
             await interaction.edit_original_response(
                 content="❌ Please enter a valid team name! (`Electrical`, `Mechanical`, or `Software`)",
                 attachments=[],
@@ -425,14 +435,14 @@ class ReportsModal(discord.ui.Modal):
 
         # Calculate column to log in.
         cur_semester = semester_given_date(datetime.datetime.now())
-        first_date = cur_semester[0] if cur_semester else datetime.date.today()
-        week = WeekColumn.current().report_column
+        cur_semester[0] if cur_semester else datetime.date.today()
+        week = WeekColumn.current()
 
         # Log a Y for their square
         if (
             await main_worksheet.cell(
                 name_cell.row,
-                week + len(Column),
+                week.report_column + len(Column),
             )
         ).value:
             await interaction.edit_original_response(
@@ -444,21 +454,16 @@ class ReportsModal(discord.ui.Modal):
         await main_worksheet.update_cell(
             name_cell.row,
             Column.TEAM_COLUMN,
-            self.team.value.title(),
+            team.sheet_str,
         )
         await main_worksheet.update_cell(
             name_cell.row,
             Column.DISCORD_NAME_COLUMN,
             str(interaction.user),
         )
-        await main_worksheet.update_cell(
-            name_cell.row,
-            week + len(Column),
-            "Y",
-        )
 
         # Add a comment with their full report in the cell
-        a1_notation = gspread.utils.rowcol_to_a1(name_cell.row, week + self.bot.reports_cog.TOTAL_COLUMNS)  # type: ignore
+        a1_notation = gspread.utils.rowcol_to_a1(name_cell.row, week.report_column)  # type: ignore
         await main_worksheet.update(
             a1_notation,
             [
@@ -468,19 +473,25 @@ class ReportsModal(discord.ui.Modal):
             ],
         )
 
-        week_date = first_date + datetime.timedelta(days=(week - 1) * 7)
-        month_date_formatted = week_date.strftime("%B %d, %Y")
+        month_date_formatted = week.date_range[0].strftime("%B %d, %Y")
         receipt = discord.Embed(
             title="Weekly Report Receipt",
             description=f"Here's a copy of your report for the week of **{month_date_formatted}** for your records. If you need to make any changes, please contact your team leader.",
             color=discord.Color.blue(),
         )
-        receipt.add_field(name="Name", value=self.name.value, inline=True)
-        receipt.add_field(name="Team", value=self.team.value, inline=True)
-        receipt.add_field(name="Report", value=self.report.value, inline=False)
+        diff = week.closes_at - datetime.datetime.now()
+        hours, minutes = divmod(diff.total_seconds() // 60, 60)
+        diff_str = f"{hours:.0f} hours" if hours > 0 else f"{minutes:.0f} minutes"
+        submitted_at = f"{discord.utils.format_dt(discord.utils.utcnow(), 'F')} ({diff_str} before deadline)"
+        receipt.add_field(
+            name="📝 __Report__",
+            value=f"```\n{self.report.value[:1000]}\n```",
+            inline=False,
+        )
+        receipt.add_field(name="🕰️ __Submitted At__", value=submitted_at, inline=False)
         receipt.set_footer(text="Thank you for your hard work!")
         try:
-            await interaction.user.send(embed=receipt)
+            message = await interaction.user.send(embed=receipt)
         except discord.Forbidden:
             await interaction.edit_original_response(
                 content="✅ Your report was successfully submitted. However, you do not have direct messages enabled, so we were unable to send you a receipt.",
@@ -488,7 +499,7 @@ class ReportsModal(discord.ui.Modal):
             )
         else:
             await interaction.edit_original_response(
-                content="✅ Successfully logged your report! A receipt of your report has been sent to you through direct messages. Thank you!",
+                content=f"✅ Successfully logged your report! A receipt of your report has been sent to you through direct messages ({message.jump_url}). Thank you!",
                 attachments=[],
             )
 
