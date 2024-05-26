@@ -61,11 +61,15 @@ class AwayView(MILBotView):
 
 
 class Leaders(commands.Cog):
+
+    away_cooldown: dict[discord.Member, list[tuple[discord.Member, datetime.datetime]]]
+
     def __init__(self, bot: MILBot):
         self.bot = bot
         self.notes_reminder.start(self)
         self.pre_reminder.start(self)
         self.at_reminder.start(self)
+        self.away_cooldown = {}
 
     @commands.command()
     @commands.has_any_role("Software Leadership")
@@ -156,6 +160,25 @@ class Leaders(commands.Cog):
             view=view,
         )
 
+    def _away_cooldown_check(
+        self,
+        away_member: discord.Member,
+        pinger: discord.Member,
+    ) -> bool:
+        """
+        Returns True if pinger should be notified, False otherwise.
+        """
+        if away_member in self.away_cooldown:
+            who_was_notified = self.away_cooldown[away_member]
+            for member, last_notified in who_was_notified:
+                if (
+                    member == pinger
+                    and datetime.datetime.now().astimezone() - last_notified
+                    < datetime.timedelta(days=1)
+                ):
+                    return False
+        return True
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         # Check that leaders mentioned are not away - if they are, remind the poster
@@ -167,15 +190,21 @@ class Leaders(commands.Cog):
         for member in mentioned:
             if (
                 isinstance(member, discord.Member)
+                and isinstance(message.author, discord.Member)
                 and self.bot.away_role in member.roles
+                and self._away_cooldown_check(member, message.author)
             ):
                 delay_seconds = 15
                 delete_at = message.created_at + datetime.timedelta(
                     seconds=delay_seconds,
                 )
+                self.away_cooldown.setdefault(member, []).append(
+                    (message.author, datetime.datetime.now().astimezone()),
+                )
                 await message.reply(
                     f"{member.mention} is currently away from MIL for a temporary break, and may not respond immediately. Please consider reaching out to another leader or wait for their return. (deleting this message {discord.utils.format_dt(delete_at, 'R')})",
                     delete_after=delay_seconds,
+                    silent=True,
                 )
 
     @commands.command()
