@@ -576,6 +576,13 @@ class ReportHistoryButton(discord.ui.Button):
             interaction.user.name,
             in_column=Column.DISCORD_NAME_COLUMN.value,
         )
+        if name_cell is None:
+            await interaction.edit_original_response(
+                content="❌ We couldn't find your name in the main spreadsheet. Are you registered for EGN4912 and have you submitted a report this semester?",
+                attachments=[],
+            )
+            return
+
         # Get all values for this member
         row_values = await main_worksheet.row_values(name_cell.row)
         # Iterate through week columns
