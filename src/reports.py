@@ -751,10 +751,8 @@ class ReportsCog(commands.Cog):
         return res
 
     async def members_without_report(self) -> list[Student]:
-        week = WeekColumn.current().report_column
-        column = week + len(Column)
-
-        students = await self.students_status(column)
+        week = WeekColumn.current()
+        students = await self.students_status(week.report_column)
         return [student for student in students if not student.report]
 
     @run_on_weekday(calendar.SUNDAY, 12, 0, check=is_active)
