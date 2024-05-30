@@ -296,6 +296,25 @@ class GoodReportButton(ReportReviewButton):
         self.view.stop()
 
 
+class SkipReportButton(ReportReviewButton):
+    def __init__(self, bot: MILBot, student: Student):
+        self.bot = bot
+        self.student = student
+        super().__init__(
+            bot,
+            student,
+            label="Skip (no score)",
+            emoji="⏩",
+            style=discord.ButtonStyle.secondary,
+            row=3,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        assert self.view is not None
+        self.view.stop()
+
+
 class ReportsReviewView(MILBotView):
     def __init__(self, bot: MILBot, student: Student):
         self.bot = bot
@@ -304,6 +323,7 @@ class ReportsReviewView(MILBotView):
         self.add_item(NegativeReportButton(bot, student))
         self.add_item(WarningReportButton(bot, student))
         self.add_item(GoodReportButton(bot, student))
+        self.add_item(SkipReportButton(bot, student))
 
 
 class StartReviewView(MILBotView):
