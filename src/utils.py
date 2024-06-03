@@ -120,3 +120,13 @@ def capped_str(parts: list[str], cap: int = 1024) -> str:
         result += part + "\n"
         made_it += 1
     return result.strip()
+
+
+# derived from: https://stackoverflow.com/a/20007730
+def ordinal(n: int):
+    suffix = (
+        "th"
+        if 11 <= (n % 100) <= 13
+        else ["th", "st", "nd", "rd", "th"][min(n % 10, 4)]
+    )
+    return str(n) + suffix

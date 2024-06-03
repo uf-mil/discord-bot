@@ -17,7 +17,7 @@ from discord.ext import commands
 from .constants import SCHWARTZ_EMAIL, Team, semester_given_date
 from .email import Email
 from .tasks import run_on_weekday
-from .utils import is_active
+from .utils import is_active, ordinal
 from .views import MILBotView
 
 if TYPE_CHECKING:
@@ -508,8 +508,17 @@ class ReportsModal(discord.ui.Modal):
             value=f"```\n{self.report.value[:1000]}\n```",
             inline=False,
         )
+        report_values = await self.bot.reports_cog.safe_col_values(
+            main_worksheet,
+            week.report_column,
+        )
+        report_values = report_values[2:]  # Skip header rows
+        # Number of submitted reports:
+        submitted_reports = len([rv for rv in report_values if rv])
         receipt.add_field(name="🕰️ __Submitted At__", value=submitted_at, inline=False)
-        receipt.set_footer(text="Thank you for your hard work!")
+        receipt.set_footer(
+            text=f"Thank you for your hard work! You were the {ordinal(submitted_reports)} person to submit your report this week! (out of {len(report_values)})",
+        )
         try:
             message = await interaction.user.send(embed=receipt)
         except discord.Forbidden:
@@ -519,7 +528,7 @@ class ReportsModal(discord.ui.Modal):
             )
         else:
             await interaction.edit_original_response(
-                content=f"✅ Successfully logged your report! A receipt of your report has been sent to you through direct messages ({message.jump_url}). Thank you!",
+                content=f"✅ Successfully logged your report! A [receipt]({message.jump_url}) of your report has been sent to you through direct messages. Thank you!",
                 attachments=[],
             )
 

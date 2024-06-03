@@ -69,6 +69,7 @@ class Leaders(commands.Cog):
         self.notes_reminder.start(self)
         self.pre_reminder.start(self)
         self.at_reminder.start(self)
+        self.robosub_reminder.start(self)
         self.away_cooldown = {}
 
     @commands.command()
@@ -87,6 +88,101 @@ class Leaders(commands.Cog):
                 )
                 return
         await ctx.send(f"❌ Task `{func_name}` not found.")
+
+    def _schedule_generator(
+        self,
+        start_date: datetime.date,
+        event_submission: datetime.date,
+        design_submission: datetime.date,
+        ship_date: datetime.date,
+        competition_start: datetime.date,
+        competition_end: datetime.date,
+    ) -> str:
+        today = datetime.date.today()
+        symbols = []
+        days = (competition_end - start_date).days + 1
+
+        annotations = {}
+
+        for i in range(days):
+            current_date = start_date + datetime.timedelta(days=i)
+            week_start = current_date - datetime.timedelta(
+                days=(current_date.weekday() + 1) % 7,
+            )
+            week_format = week_start.strftime("%b %d")
+            if current_date < today:
+                symbol = " "
+            elif current_date == today:
+                symbol = "X"
+            elif current_date.strftime("%U") == today.strftime("%U"):
+                symbol = "x"
+            elif current_date < ship_date:
+                symbol = "."
+            elif current_date < competition_start:
+                symbol = "s"
+            else:
+                symbol = "c"
+
+            # Annotations
+            if current_date == ship_date:
+                annotations[week_format] = "← ship date"
+            if current_date == event_submission:
+                annotations[week_format] = "← event submission"
+            if current_date == design_submission:
+                annotations[week_format] = "← design submission"
+            if current_date == start_date:
+                annotations[week_format] = "← start"
+            if current_date == today:
+                annotations[week_format] = "← current week"
+            if current_date == competition_start:
+                annotations[week_format] = "← competition start"
+            if current_date == competition_end:
+                annotations[week_format] = "← competition end"
+            symbols.append(symbol)
+
+        weeks = {}
+        for i, symbol in enumerate(symbols):
+            current_date = start_date + datetime.timedelta(days=i)
+            week_start = current_date - datetime.timedelta(
+                days=(current_date.weekday() + 1) % 7,
+            )
+            week_format = week_start.strftime("%b %d")
+            weeks.setdefault(week_format, []).append(symbol)
+
+        final_string = []
+        for week, symbols in weeks.items():
+            line = f"{week:<6}: {''.join(symbols):<7}"
+            if week in annotations:
+                line += f" {annotations[week]}"
+            final_string.append(line)
+
+        together_schedule = "\n".join(final_string)
+        return f"```js\n        SMTWTFS\n{together_schedule}\n```"
+
+    @run_on_weekday(
+        [calendar.MONDAY, calendar.FRIDAY],
+        9,
+        0,
+    )
+    async def robosub_reminder(self):
+        SUMMER_START = datetime.date(2024, 5, 13)
+        EVENT_SUBMISSION = datetime.date(2024, 6, 17)
+        DESIGN_SUBMISSION = datetime.date(2024, 6, 24)
+        ROBOSUB_START = datetime.date(2024, 8, 5)
+        ROBOSUB_END = datetime.date(2024, 8, 11)
+        SHIPPING_START = ROBOSUB_START - datetime.timedelta(weeks=2)
+        today = datetime.date.today()
+        if today < SHIPPING_START:
+            days = (SHIPPING_START - today).days
+            estimated_testings = days // 3.5  # assuming two testings per week
+            await self.bot.leaders_channel.send(
+                f"Good morning! There are **{days} days** until sub is shipped! (estimated testings remaining: **{estimated_testings:.0f})**\n{self._schedule_generator(SUMMER_START, EVENT_SUBMISSION, DESIGN_SUBMISSION, SHIPPING_START, ROBOSUB_START, ROBOSUB_END)}",
+            )
+        elif today < ROBOSUB_START:
+            days = (ROBOSUB_START - today).days
+            await self.bot.leaders_channel.send(
+                f"Good morning! There are **{days} days** until competition!",
+            )
 
     @run_on_weekday(
         MEETING_DAY,
