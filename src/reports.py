@@ -144,7 +144,7 @@ class FiringEmail(Email):
 
 class InsufficientReportEmail(Email):
     def __init__(self, student: Student):
-        html = f"<p>Hello,<br><br>This email is to inform you that your most recent report has been graded as: <b>Insufficient (yellow)</b>. As a reminder, you are expected to fulfill your commitment of {student.hours_commitment} hours each week you are in the lab.<br><br>While an occasional lapse is understandable, frequent occurrences may result in your removal from the laboratory. If you anticipate any difficulties in completing your future reports, please contact your team lead immediately.<br><br>Your current missing report count is: {student.total_score + 1}. Please note that once your count reaches 4, you will be automatically removed from our lab.</p>"
+        html = f"<p>Hello,<br><br>This email is to inform you that your most recent report has been graded as: <b>Insufficient (yellow)</b>. As a reminder, you are expected to fulfill your commitment of {student.hours_commitment} hours each week you are in the lab.<br><br>While an occasional lapse is understandable, frequent occurrences may result in your removal from the laboratory. If you anticipate any difficulties in completing your future reports, please contact your team lead immediately.<br><br>Your current missing report count is: {student.total_score + 0.5}. Please note that once your count reaches 4, you will be automatically removed from our lab.</p>"
         super().__init__([student.email], "Insufficient Report Notice", html)
 
 
