@@ -1,17 +1,19 @@
-"""
-Functionality related to asynchronous task management.
-"""
 from __future__ import annotations
 
 import asyncio
 import datetime
 import inspect
 import logging
+import sys
 from collections.abc import Awaitable, Callable, Coroutine
 from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
     from .bot import MILBot
+
+    if sys.version_info >= (3, 12):
+        from calendar import Day
+
 
 from discord.utils import maybe_coroutine
 
@@ -20,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_on_weekday(
-    day: int | list[int],
+    day: int | list[int] | list[Day],
     hour: int,
     minute: int,
     shift: datetime.timedelta | None = None,
@@ -58,7 +60,7 @@ class RecurringTask:
     def __init__(
         self,
         func: Callable[..., Coroutine[Any, Any, T]],
-        day: int | list[int],
+        day: int | list[int] | list[Day],
         hour: int,
         minute: int,
         shift: datetime.timedelta | None = None,
@@ -72,29 +74,40 @@ class RecurringTask:
         self._check = check
         self._task = None
 
-    def next_time(self) -> datetime.datetime:
-        now = datetime.datetime.now()
-
-        # If multiple days, choose the next day
-        if isinstance(self._day, list):
-            actual_day = min(self._day, key=lambda d: (d - now.weekday()) % 7)
-        else:
-            actual_day = self._day
-
+    def _dt_from_weekday(
+        self,
+        day: int | Day,
+        starting_point: datetime.datetime | None = None,
+    ) -> datetime.datetime:
+        now = starting_point if starting_point else datetime.datetime.now()
         next_day = now + datetime.timedelta(
-            days=(actual_day - now.weekday()) % 7,
+            days=(day - now.weekday()) % 7,
         )
-        next_time = next_day.replace(
+        dt = next_day.replace(
             hour=self._hour,
             minute=self._minute,
             second=0,
             microsecond=0,
         )
+        # Add the shift to the datetime if one was requested
         if self._shift:
-            next_time += self._shift
-        if now > next_time:
-            next_time += datetime.timedelta(days=7)
-        return next_time
+            dt += self._shift
+        # If the task was scheduled before the current time (likely because the
+        # weekday requested is today's weekday), then let's use next week
+        if now > dt:
+            dt += datetime.timedelta(days=7)
+        return dt
+
+    def next_time(self) -> datetime.datetime:
+        now = datetime.datetime.now()
+
+        # If multiple days, choose the next day
+        if isinstance(self._day, list):
+            actual_day = min(self._day, key=lambda d: self._dt_from_weekday(d) - now)
+        else:
+            actual_day = self._day
+
+        return self._dt_from_weekday(actual_day)
 
     def start(self, *args):
         self._args = args
