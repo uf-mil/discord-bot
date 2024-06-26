@@ -375,6 +375,7 @@ class SoftwareProjectStatus(Enum):
     TODO = "Todo"
     IN_PROGRESS = "In Progress"
     DONE = "Done"
+    WISHLIST = "Wishlist"
 
 
 @dataclasses.dataclass()
