@@ -407,9 +407,11 @@ class GitHubCog(commands.Cog):
                 icon_url=issue["user"]["avatar_url"],
             )
             res.set_thumbnail(url=issue["user"]["avatar_url"])
+        url_segments = issue["repository_url"].split("/")
+        repository_name = f"{url_segments[-2]}/{url_segments[-1]}"
         res.add_field(
             name="Repository",
-            value=f"[`uf-mil/mil`]({issue['repository_url']})",
+            value=f"[`{repository_name}`]({issue['repository_url']})",
             inline=True,
         )
         iso_date = issue["created_at"]
@@ -478,6 +480,34 @@ class GitHubCog(commands.Cog):
         if matches:
             for match in matches:
                 issue = await self.github.get_issue("uf-mil/mil", int(match))
+                await message.reply(embed=self.get_issue_or_pull(issue))
+
+        ELECTRICAL_SUB8_REGEX = r"\bs8\#(\d+)\b"
+        matches = re.findall(
+            ELECTRICAL_SUB8_REGEX,
+            message.content,
+            re.IGNORECASE | re.MULTILINE,
+        )
+        if matches:
+            for match in matches:
+                issue = await self.github.get_issue(
+                    "uf-mil-electrical/SubjuGator8",
+                    int(match),
+                )
+                await message.reply(embed=self.get_issue_or_pull(issue))
+
+        ELECTRICAL_SUB9_REGEX = r"\bs9\#(\d+)\b"
+        matches = re.findall(
+            ELECTRICAL_SUB9_REGEX,
+            message.content,
+            re.IGNORECASE | re.MULTILINE,
+        )
+        if matches:
+            for match in matches:
+                issue = await self.github.get_issue(
+                    "uf-mil-electrical/SubjuGator9",
+                    int(match),
+                )
                 await message.reply(embed=self.get_issue_or_pull(issue))
 
 
