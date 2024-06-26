@@ -300,6 +300,7 @@ class GitHub:
                 or "untitled" in project_node["title"]
                 or not project_node["shortDescription"]
                 or len(project_node["shortDescription"]) < 20
+                or "on hold" in project_node["shortDescription"]
             ):
                 continue
             project = SoftwareProject(project_node)
