@@ -118,11 +118,10 @@ class WeekColumn:
         return cls.from_date(datetime.date.today())
 
     def __post_init__(self):
-        weeks = (self._end_date() - self._start_date()) // 7
-        if (
-            self.report_column < len(Column) + 1
-            or self.report_column > len(Column) + 1 + weeks.days
-        ):
+        weeks = (self._end_date() - self._start_date()).days // 7
+        if self.report_column < len(Column) + 1 or self.report_column > len(
+            Column,
+        ) + 1 + (weeks * 2):
             raise ValueError(
                 f"Cannot create report column with index {self.report_column}.",
             )
@@ -462,7 +461,7 @@ class ReportsModal(discord.ui.Modal):
         if (
             await main_worksheet.cell(
                 name_cell.row,
-                week.report_column + len(Column),
+                week.report_column,
             )
         ).value:
             await interaction.edit_original_response(
@@ -543,7 +542,7 @@ class SubmitButton(discord.ui.Button):
                 disabled=True,
                 custom_id="reports_view:submit",
             )
-        elif datetime.datetime.today().weekday() in [0, 1]:
+        elif datetime.datetime.today().weekday() in [calendar.MONDAY, calendar.TUESDAY]:
             super().__init__(
                 label="Reports can only be submitted between Wednesday and Sunday.",
                 style=discord.ButtonStyle.red,
@@ -558,8 +557,8 @@ class SubmitButton(discord.ui.Button):
             )
 
     async def callback(self, interaction: discord.Interaction):
-        # If button is triggered on Sunday or Monday, send error message
-        if datetime.datetime.today().weekday() in [0, 1]:
+        # If button is triggered on Monday or Tuesday, send error message
+        if datetime.datetime.today().weekday() in [calendar.MONDAY, calendar.TUESDAY]:
             return await interaction.response.send_message(
                 ":x: Weekly reports should be submitted between Wednesday and Sunday. While occasional exceptions can be made if you miss a week—simply inform your team lead—this should not become a regular occurrence. Be aware that the submission window closes promptly at 11:59pm on Sunday.",
                 ephemeral=True,
