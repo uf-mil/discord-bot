@@ -170,13 +170,13 @@ class Leaders(commands.Cog):
         DESIGN_SUBMISSION = datetime.date(2024, 6, 24)
         ROBOSUB_START = datetime.date(2024, 8, 5)
         ROBOSUB_END = datetime.date(2024, 8, 11)
-        SHIPPING_START = ROBOSUB_START - datetime.timedelta(weeks=2)
+        SHIPPING_START = ROBOSUB_START - datetime.timedelta(days=10)
         today = datetime.date.today()
         if today < SHIPPING_START:
             days = (SHIPPING_START - today).days
-            estimated_testings = days // 3.5  # assuming two testings per week
+            estimated_testings = days // (7 / 3)  # assuming three testings per week
             await self.bot.leaders_channel.send(
-                f"Good morning! There are **{days} days** until sub is shipped! (estimated testings remaining: **{estimated_testings:.0f})**\n{self._schedule_generator(SUMMER_START, EVENT_SUBMISSION, DESIGN_SUBMISSION, SHIPPING_START, ROBOSUB_START, ROBOSUB_END)}",
+                f"Good morning! There are **{days} days** until sub is shipped! (estimated testings remaining: **{estimated_testings:.0f}**)\n{self._schedule_generator(SUMMER_START, EVENT_SUBMISSION, DESIGN_SUBMISSION, SHIPPING_START, ROBOSUB_START, ROBOSUB_END)}",
             )
         elif today < ROBOSUB_START:
             days = (ROBOSUB_START - today).days
@@ -274,34 +274,6 @@ class Leaders(commands.Cog):
                 ):
                     return False
         return True
-
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
-        # Check that leaders mentioned are not away - if they are, remind the poster
-        # that they are away.
-        if message.author.bot:
-            return
-
-        mentioned = message.mentions
-        for member in mentioned:
-            if (
-                isinstance(member, discord.Member)
-                and isinstance(message.author, discord.Member)
-                and self.bot.away_role in member.roles
-                and self._away_cooldown_check(member, message.author)
-            ):
-                delay_seconds = 15
-                delete_at = message.created_at + datetime.timedelta(
-                    seconds=delay_seconds,
-                )
-                self.away_cooldown.setdefault(member, []).append(
-                    (message.author, datetime.datetime.now().astimezone()),
-                )
-                await message.reply(
-                    f"{member.mention} is currently away from MIL for a temporary break, and may not respond immediately. Please consider reaching out to another leader or wait for their return. (deleting this message {discord.utils.format_dt(delete_at, 'R')})",
-                    delete_after=delay_seconds,
-                    silent=True,
-                )
 
     @commands.command()
     @commands.is_owner()
