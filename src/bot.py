@@ -92,9 +92,11 @@ class MILBot(commands.Bot):
     general_channel: discord.TextChannel
     member_services_channel: discord.TextChannel
     errors_channel: discord.TextChannel
+    github_updates_channel: discord.TextChannel
     software_projects_channel: discord.TextChannel
     software_category_channel: discord.CategoryChannel
     operations_leaders_channel: discord.TextChannel
+    software_leaders_channel: discord.TextChannel
 
     # Emojis
     loading_emoji: str
@@ -211,6 +213,7 @@ class MILBot(commands.Bot):
             "src.projects",
             "src.reports",
             "src.roles",
+            "src.webhooks",
             "src.welcome",
             "src.testing",
         )
@@ -283,6 +286,20 @@ class MILBot(commands.Bot):
         )
         assert isinstance(operations_leaders_channel, discord.TextChannel)
         self.operations_leaders_channel = operations_leaders_channel
+
+        software_leaders_channel = discord.utils.get(
+            self.active_guild.text_channels,
+            name="software-leadership",
+        )
+        assert isinstance(software_leaders_channel, discord.TextChannel)
+        self.software_leaders_channel = software_leaders_channel
+
+        github_updates_channel = discord.utils.get(
+            self.active_guild.text_channels,
+            name="github-updates",
+        )
+        assert isinstance(github_updates_channel, discord.TextChannel)
+        self.github_updates_channel = github_updates_channel
 
         errors_channel = discord.utils.get(
             self.active_guild.text_channels,
