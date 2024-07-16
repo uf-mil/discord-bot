@@ -50,6 +50,13 @@ class Webhooks(commands.Cog):
     def url(self, obj: dict[str, str], html=False) -> str:
         return f"<{obj['url']}>" if not html else f"<{obj['html_url']}>"
 
+    def natural_wrap(self, text: str) -> str:
+        # Wrap text to 1000 characters, or wherever is natural first (aka, the
+        # first newline)
+        if "\n" in text:
+            return text[: text.index("\n")][:1000] + "..."
+        return text[:1000]
+
     @Server.route()
     async def commit_created(self, payload: ClientPayload):
         gh = payload.github_data
@@ -63,10 +70,12 @@ class Webhooks(commands.Cog):
             f"[{gh['ref'].split('/')[-1]}]({self.url(gh['repository'], html=True)})"
         )
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
-        message = f"\"{gh['head_commit']['message']}\""
-        await self.bot.github_updates_channel.send(
-            f"{name} {pushed} 1 commit to {branch} in {repo}: {message}",
-        )
+        message = f"\"{self.natural_wrap(gh['head_commit']['message'])}\""
+        if gh["ref"] == "refs/heads/master" or gh["ref"] == "refs/heads/main":
+            commit_count = len(gh["commits"])
+            await self.bot.github_updates_channel.send(
+                f"{name} {pushed} {commit_count} commit{'s' if commit_count != 1 else ''} to {branch} in {repo}: {message}",
+            )
 
     @Server.route()
     async def star_created(self, payload: ClientPayload):
@@ -136,7 +145,7 @@ class Webhooks(commands.Cog):
         # Send a message to software-leadership in the form of:
         # [User A](link) accepted an invitation to join [organization_name](link)
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
-        org = f"[{gh['organization']['login']}]({self.url(gh['organization'], html=True)})"
+        org = f"[{gh['organization']['login']}]({self.url(gh['organization'])})"
         await self.bot.software_leaders_channel.send(
             f"{name} accepted an invitation to join {org}",
         )
@@ -147,7 +156,7 @@ class Webhooks(commands.Cog):
         # Send a message to software-leadership in the form of:
         # [User A](link) was removed from [organization_name](link)
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
-        org = f"[{gh['organization']['login']}]({self.url(gh['organization'], html=True)})"
+        org = f"[{gh['organization']['login']}]({self.url(gh['organization'])})"
         await self.bot.software_leaders_channel.send(f"{name} was removed from {org}")
 
     @Server.route()
@@ -200,6 +209,110 @@ class Webhooks(commands.Cog):
         await self.bot.github_updates_channel.send(
             f"{name} submitted a review on pull request {pr} in {repo}",
         )
+
+    @Server.route()
+    async def commit_comment(self, payload: ClientPayload):
+        gh = payload.github_data
+        # Send a message to github-updates in the form of:
+        # [User A](link) commented on commit [commit_sha](link) in [repo_name](link): "comment"
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        commit = f"[`{gh['comment']['commit_id'][:7]}`]({self.url(gh['comment'], html=True)})"
+        repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
+        comment = f"\"{self.natural_wrap(gh['comment']['body'])}\""
+        await self.bot.github_updates_channel.send(
+            f"{name} commented on commit {commit} in {repo}: {comment}",
+        )
+
+    @Server.route()
+    async def issue_comment_created(self, payload: ClientPayload):
+        gh = payload.github_data
+        # Send a message to github-updates in the form of:
+        # [User A](link) commented on issue [#XXX](link) in [repo_name](link): "comment"
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
+        repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
+        comment = f"\"{self.natural_wrap(gh['comment']['body'])}\""
+        await self.bot.github_updates_channel.send(
+            f"{name} commented on issue {issue} in {repo}: {comment}",
+        )
+
+    @Server.route()
+    async def issues_assigned(self, payload: ClientPayload):
+        gh = payload.github_data
+        # Send a message to github-updates in the form of:
+        # [User A](link) assigned [User B](link) to issue [#XXX](link) in [repo_name](link)
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        assigned = f"[{await self.real_name(gh['assignee']['login'])}]({self.url(gh['assignee'], html=True)})"
+        issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
+        repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
+        if gh["assignee"]["login"] == gh["sender"]["login"]:
+            await self.bot.github_updates_channel.send(
+                f"{name} self-assigned issue {issue} in {repo}",
+            )
+        else:
+            await self.bot.github_updates_channel.send(
+                f"{name} assigned {assigned} to issue {issue} in {repo}",
+            )
+
+    @Server.route()
+    async def issues_unassigned(self, payload: ClientPayload):
+        gh = payload.github_data
+        # Send a message to github-updates in the form of:
+        # [User A](link) unassigned [User B](link) from issue [#XXX](link) in [repo_name](link)
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        unassigned = f"[{await self.real_name(gh['assignee']['login'])}]({self.url(gh['assignee'], html=True)})"
+        issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
+        repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
+        if gh["assignee"]["login"] == gh["sender"]["login"]:
+            await self.bot.github_updates_channel.send(
+                f"{name} unassigned themself from issue {issue} in {repo}",
+            )
+        else:
+            await self.bot.github_updates_channel.send(
+                f"{name} unassigned {unassigned} from issue {issue} in {repo}",
+            )
+
+    @Server.route()
+    async def membership_added(self, payload: ClientPayload):
+        gh = payload.github_data
+        # If the user is being added to a team with the 'core' word in the name, notify software-leadership
+        # Send a message to software-leadership in the form of:
+        # [User A](link) added [User B](link) to [team_name](link) in [organization_name](link)
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        added = f"[{await self.real_name(gh['member']['login'])}]({self.url(gh['member'], html=True)})"
+        team = f"[{gh['team']['name']}]({self.url(gh['team'], html=True)})"
+        org = f"[{gh['organization']['login']}]({self.url(gh['organization'])})"
+        if "core" in team.lower():
+            await self.bot.software_leaders_channel.send(
+                f"{name} added {added} to {team} in {org}",
+            )
+
+    @Server.route()
+    async def public(self, payload: ClientPayload):
+        gh = payload.github_data
+        # Send a message to github-updates in the form of:
+        # [User A](link) made [repo_name](link) public
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
+        await self.bot.github_updates_channel.send(f"{name} made {repo} public")
+
+    @Server.route()
+    async def repository_created(self, payload: ClientPayload):
+        gh = payload.github_data
+        # Send a message to github-updates in the form of:
+        # [User A](link) created [repo_name](link)
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
+        await self.bot.github_updates_channel.send(f"{name} created {repo}")
+
+    @Server.route()
+    async def repository_deleted(self, payload: ClientPayload):
+        gh = payload.github_data
+        # Send a message to github-updates in the form of:
+        # [User A](link) deleted [repo_name](link)
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
+        await self.bot.github_updates_channel.send(f"{name} deleted {repo}")
 
 
 async def setup(bot: MILBot):
