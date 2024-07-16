@@ -51,3 +51,5 @@ MECHANICAL_OH_CALENDAR = ensure_string("MECHANICAL_OH_CALENDAR", True)
 # Email
 EMAIL_USERNAME = ensure_string("EMAIL_USERNAME", True)
 EMAIL_PASSWORD = ensure_string("EMAIL_PASSWORD", True)
+WEBHOOK_SERVER_PORT = ensure_string("WEBHOOK_SERVER_PORT", True)
+IPC_PORT = ensure_string("IPC_PORT", True)
