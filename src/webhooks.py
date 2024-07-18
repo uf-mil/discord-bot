@@ -58,7 +58,7 @@ class Webhooks(commands.Cog):
         return text[:1000]
 
     @Server.route()
-    async def commit_created(self, payload: ClientPayload):
+    async def push(self, payload: ClientPayload):
         gh = payload.github_data
         # If push to master, send message to github-updates in the form of:
         # [User A](link) [pushed](commit_url) 1 commit to [branch_name](link) in [repo_name](link): "commit message"
@@ -70,12 +70,28 @@ class Webhooks(commands.Cog):
             f"[{gh['ref'].split('/')[-1]}]({self.url(gh['repository'], html=True)})"
         )
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
-        message = f"\"{self.natural_wrap(gh['head_commit']['message'])}\""
+        compare = f"[diff]({gh['compare']})"
+        commit_count = len(gh["commits"])
         if gh["ref"] == "refs/heads/master" or gh["ref"] == "refs/heads/main":
-            commit_count = len(gh["commits"])
-            await self.bot.github_updates_channel.send(
-                f"{name} {pushed} {commit_count} commit{'s' if commit_count != 1 else ''} to {branch} in {repo}: {message}",
-            )
+            if commit_count == 1:
+                by_statement = (
+                    f" by {name}"
+                    if gh["head_commit"]["author"]["username"] != gh["sender"]["login"]
+                    else ""
+                )
+                message = f"\"{self.natural_wrap(gh['head_commit']['message'])}\""
+                await self.bot.github_updates_channel.send(
+                    f"{name} {pushed} a commit{by_statement} to {branch} in {repo} ({compare}): {message}",
+                )
+            else:
+                formatted_commits = [
+                    f"* [`{commit['id'][:7]}`]({self.url(commit)}): \"{commit['message'][:100]}\""
+                    for commit in gh["commits"]
+                ]
+                formatted_commits_str = "\n".join(formatted_commits)
+                await self.bot.github_updates_channel.send(
+                    f"{name} {pushed} {commit_count} commits to {branch} in {repo} ({compare}):\n{formatted_commits_str}",
+                )
 
     @Server.route()
     async def star_created(self, payload: ClientPayload):
@@ -176,13 +192,19 @@ class Webhooks(commands.Cog):
     async def pull_request_closed(self, payload: ClientPayload):
         gh = payload.github_data
         # Send a message to github-updates in the form of:
-        # [User A](link) closed pull request [#XXX](link) as "completed/not-planned" in [repo_name](link): "pull request title"
+        # [User A](link) closed/merged pull request [#XXX](link) [by [User B](link)] as "completed/not-planned" in [repo_name](link): "pull request title"
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
         pr = f"[#{gh['pull_request']['number']}]({self.url(gh['pull_request'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         title = f"\"{gh['pull_request']['title']}\""
+        by = f"[{await self.real_name(gh['pull_request']['user']['login'])}]({self.url(gh['pull_request']['user'], html=True)})"
+        by_statement = (
+            f" by {by}"
+            if gh["pull_request"]["user"]["login"] != gh["sender"]["login"]
+            else ""
+        )
         await self.bot.github_updates_channel.send(
-            f"{name} closed pull request {pr} in {repo}: {title}",
+            f"{name} {'merged' if gh['pull_request']['merged'] else 'closed'} pull request {pr}{by_statement} in {repo}: {title}",
         )
 
     @Server.route()
@@ -273,6 +295,20 @@ class Webhooks(commands.Cog):
             )
 
     @Server.route()
+    async def pull_request_edited(self, payload: ClientPayload):
+        gh = payload.github_data
+        # Send a message to github-updates in the form of:
+        # [User A](link) edited the title of pull request [#XXX](link) in [repo_name](link) to "new title"
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        pr = f"[#{gh['pull_request']['number']}]({self.url(gh['pull_request'], html=True)})"
+        repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
+        title = f"\"{gh['pull_request']['title']}\""
+        if gh["changes"]["title"]:
+            await self.bot.github_updates_channel.send(
+                f"{name} edited the title of pull request {pr} in {repo} to {title}",
+            )
+
+    @Server.route()
     async def membership_added(self, payload: ClientPayload):
         gh = payload.github_data
         # If the user is being added to a team with the 'core' word in the name, notify software-leadership
@@ -313,6 +349,37 @@ class Webhooks(commands.Cog):
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         await self.bot.github_updates_channel.send(f"{name} deleted {repo}")
+
+    @Server.route()
+    async def check_suite_completed(self, payload: ClientPayload):
+        gh = payload.github_data
+        # If a fail occurs on the head branch, send a message to software-leadership in the form of:
+        # 1 job ([link](link)) failed on commit [commit_sha](link) by [User A](link) in [repo_name](link) failed on [head branch name](link)
+        if (
+            gh["check_suite"]["conclusion"] == "failure"
+            and gh["check_suite"]["head_branch"] == gh["repository"]["default_branch"]
+        ):
+            check_runs = await self.bot.github.fetch(
+                gh["check_suite"]["check_runs_url"],
+            )
+            failed = [
+                run
+                for run in check_runs["check_runs"]
+                if run["conclusion"] == "failure"
+            ]
+            failed_count = f"{len(failed)} job{'s' if len(failed) != 1 else ''}"
+            failed_links = [
+                f"[link {i+1}]({self.url(run, html=True)})"
+                for i, run in enumerate(failed)
+            ]
+            failed_links_str = ", ".join(failed_links)
+            name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+            commit = f"[`{gh['check_suite']['head_sha'][:7]}`](<https://github.com/{gh['repository']['full_name']}/commit/{gh['check_suite']['head_sha']}>)"
+            repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
+            branch = f"`{gh['check_suite']['head_branch']}`"
+            await self.bot.software_leaders_channel.send(
+                f"{failed_count} failed ({failed_links_str}) on commit {commit} by {name} in {repo} on {branch}",
+            )
 
 
 async def setup(bot: MILBot):
