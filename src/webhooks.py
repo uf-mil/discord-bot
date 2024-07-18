@@ -103,7 +103,7 @@ class Webhooks(commands.Cog):
         await self.bot.github_updates_channel.send(f"{name} added a star to {repo}")
 
     @Server.route()
-    async def issue_opened(self, payload: ClientPayload):
+    async def issues_opened(self, payload: ClientPayload):
         # Send a message to github-updates in the form of:
         # [User A](link) opened issue [#XXX](link) in [repo_name](link): "issue title"
         gh = payload.github_data
@@ -118,7 +118,7 @@ class Webhooks(commands.Cog):
         )
 
     @Server.route()
-    async def issue_closed(self, payload: ClientPayload):
+    async def issues_closed(self, payload: ClientPayload):
         # Send a message to github-updates in the form of:
         # [User A](link) closed issue [#XXX](link) as "completed/not-planned" in [repo_name](link): "issue title"
         gh = payload.github_data
@@ -246,7 +246,7 @@ class Webhooks(commands.Cog):
         )
 
     @Server.route()
-    async def issue_comment_created(self, payload: ClientPayload):
+    async def issues_comment_created(self, payload: ClientPayload):
         gh = payload.github_data
         # Send a message to github-updates in the form of:
         # [User A](link) commented on issue [#XXX](link) in [repo_name](link): "comment"
