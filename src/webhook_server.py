@@ -15,40 +15,12 @@ async def main():
     print(f"Received event of type {event_type}.")
     if event_type == "ping":
         print("I was pinged!")
-    elif event_type == "push":
-        await ipc.request("commit_created", github_data=data)
-    elif event_type == "issues" and data["action"] == "opened":
-        await ipc.request("issue_opened", github_data=data)
-    elif event_type == "issues" and data["action"] == "closed":
-        await ipc.request("issue_closed", github_data=data)
-    elif event_type == "star" and data["action"] == "created":
-        await ipc.request("star_created", github_data=data)
-    elif event_type == "organization" and data["action"] == "member_added":
-        await ipc.request("organization_member_added", github_data=data)
-    elif event_type == "organization" and data["action"] == "member_invited":
-        await ipc.request("organization_member_invited", github_data=data)
-    elif event_type == "pull_request" and data["action"] == "opened":
-        await ipc.request("pull_request_opened", github_data=data)
-    elif event_type == "pull_request" and data["action"] == "closed":
-        await ipc.request("pull_request_closed", github_data=data)
-    elif event_type == "pull_request_review" and data["action"] == "submitted":
-        await ipc.request("pull_request_review_submitted", github_data=data)
-    elif event_type == "commit_comment":
-        await ipc.request("commit_comment", github_data=data)
-    elif event_type == "issue_comment" and data["action"] == "created":
-        await ipc.request("issue_comment_created", github_data=data)
-    elif event_type == "issues" and data["action"] == "assigned":
-        await ipc.request("issues_assigned", github_data=data)
-    elif event_type == "issues" and data["action"] == "unassigned":
-        await ipc.request("issues_unassigned", github_data=data)
-    elif event_type == "membership" and data["action"] == "added":
-        await ipc.request("membership_added", github_data=data)
-    elif event_type == "public":
-        await ipc.request("public", github_data=data)
-    elif event_type == "repository" and data["action"] == "created":
-        await ipc.request("repository_created", github_data=data)
-    elif event_type == "repository" and data["action"] == "deleted":
-        await ipc.request("repository_deleted", github_data=data)
+    else:
+        action = data.get("action")
+        await ipc.request(
+            f"{event_type}_{action}" if action else str(event_type),
+            github_data=data,
+        )
     return {"succeeded": True}
 
 
