@@ -392,6 +392,40 @@ class Webhooks(commands.Cog):
         await updates_channel.send(f"{name} deleted {repo}")
 
     @Server.route()
+    async def repository_archived(self, payload: ClientPayload):
+        gh = payload.github_data
+        # Send a message to github-updates in the form of:
+        # [User A](link) archived [repo_name](link)
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
+        updates_channel = self.updates_channel(gh["repository"])
+        await updates_channel.send(f"{name} archived {repo}")
+
+    @Server.route()
+    async def repository_unarchived(self, payload: ClientPayload):
+        gh = payload.github_data
+        # Send a message to github-updates in the form of:
+        # [User A](link) unarchived [repo_name](link)
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
+        updates_channel = self.updates_channel(gh["repository"])
+        await updates_channel.send(f"{name} unarchived {repo}")
+
+    @Server.route()
+    async def issue_comment_created(self, payload: ClientPayload):
+        gh = payload.github_data
+        # Send a message to github-updates in the form of:
+        # [User A](link) commented on issue [#XXX](link) in [repo_name](link): "comment"
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
+        repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
+        comment = f"\"{self.natural_wrap(gh['comment']['body'])}\""
+        updates_channel = self.updates_channel(gh["repository"])
+        await updates_channel.send(
+            f"{name} commented on issue {issue} in {repo}: {comment}",
+        )
+
+    @Server.route()
     async def check_suite_completed(self, payload: ClientPayload):
         gh = payload.github_data
         # If a fail occurs on the head branch, send a message to software-leadership in the form of:
