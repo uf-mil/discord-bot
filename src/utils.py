@@ -1,10 +1,25 @@
 import datetime
 import re
+from collections.abc import Iterable
 
 import discord
 from discord import app_commands
 
 from .constants import SEMESTERS
+
+
+def make_and(iterable: Iterable) -> str:
+    """
+    Joins an iterable with commas and an "and" before the last element.
+    """
+    iterable = list(iterable)
+    if len(iterable) == 0:
+        return ""
+    if len(iterable) == 1:
+        return iterable[0]
+    if len(iterable) == 2:
+        return f"{iterable[0]} and {iterable[1]}"
+    return f"{', '.join(iterable[:-1])}, and {iterable[-1]}"
 
 
 def is_active() -> bool:
