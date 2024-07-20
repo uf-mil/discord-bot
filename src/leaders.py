@@ -3,8 +3,10 @@ Provides functionality related to leadership of MIL.
 """
 from __future__ import annotations
 
+import asyncio
 import calendar
 import datetime
+import re
 import time
 from typing import TYPE_CHECKING
 
@@ -16,7 +18,7 @@ from .anonymous import AnonymousReportView
 from .env import LEADERS_MEETING_NOTES_URL, LEADERS_MEETING_URL
 from .github import GitHubInviteView
 from .tasks import run_on_weekday
-from .utils import is_active
+from .utils import is_active, make_and
 from .verification import StartEmailVerificationView
 from .views import MILBotView
 
@@ -63,6 +65,8 @@ class AwayView(MILBotView):
 class Leaders(commands.Cog):
 
     away_cooldown: dict[discord.Member, list[tuple[discord.Member, datetime.datetime]]]
+    protected_channel_names: list[str]
+    perm_notify_lock: asyncio.Lock
 
     def __init__(self, bot: MILBot):
         self.bot = bot
@@ -71,6 +75,13 @@ class Leaders(commands.Cog):
         self.at_reminder.start(self)
         self.robosub_reminder.start(self)
         self.away_cooldown = {}
+        self.protected_channel_names = [
+            r"^.*leads$",
+            "^students-only$",
+            "^.*-travel$",
+            r"^.*-leadership$",
+        ]
+        self.perm_notify_lock = asyncio.Lock()
 
     @commands.command()
     @commands.has_any_role("Software Leadership")
@@ -335,6 +346,112 @@ class Leaders(commands.Cog):
         view = GitHubInviteView(self.bot)
         await ctx.send(embed=embed, view=view)
         await ctx.message.delete()
+
+    @commands.Cog.listener()
+    async def on_guild_channel_update(
+        self,
+        before: discord.abc.GuildChannel,
+        after: discord.abc.GuildChannel,
+    ):
+        # Do the same thing as the function below
+        if not isinstance(before, discord.TextChannel) or not isinstance(
+            after,
+            discord.TextChannel,
+        ):
+            return
+        async with self.perm_notify_lock:
+            important = any(
+                re.match(name, after.name) for name in self.protected_channel_names
+            )
+            if important:
+                before_members = before.members
+                after_members = after.members
+                removed_members = set(before_members) - set(after_members)
+                added_members = set(after_members) - set(before_members)
+                entry = [
+                    x
+                    async for x in after.guild.audit_logs(
+                        limit=1,
+                        after=discord.utils.utcnow() - datetime.timedelta(seconds=5),
+                    )
+                    if x.action
+                    in [
+                        discord.AuditLogAction.channel_update,
+                        discord.AuditLogAction.overwrite_update,
+                        discord.AuditLogAction.overwrite_create,
+                        discord.AuditLogAction.overwrite_delete,
+                    ]
+                    and x.target.id == after.id
+                ]
+                user = "A user" if not entry else entry[0].user.mention
+                if removed_members:
+                    removed_name_str = ", ".join(
+                        f"**{member.display_name}**" for member in removed_members
+                    )
+                    await after.send(
+                        f"{user} updated channel permissions to remove {{{removed_name_str}}} from this channel. Adios! :wave:",
+                    )
+                if added_members:
+                    added_str = ", ".join(
+                        f"**{member.display_name}**" for member in added_members
+                    )
+                    added_mention_str = make_and(
+                        [member.mention for member in added_members],
+                    )
+                    await after.send(
+                        f"{user} updated channel permissions to add {{{added_str}}} to this channel. Welcome {added_mention_str}! :wave:",
+                    )
+
+    @commands.Cog.listener()
+    async def on_member_update(
+        self,
+        before: discord.Member,
+        after: discord.Member,
+    ):
+        # Check if the user received a role that allows them to view/not view
+        # important channels
+        if before.roles == after.roles:
+            return
+        async with self.perm_notify_lock:
+            after = await after.guild.fetch_member(after.id)
+            await asyncio.sleep(1)
+            entry = [
+                x
+                async for x in after.guild.audit_logs(
+                    limit=1,
+                    after=discord.utils.utcnow() - datetime.timedelta(seconds=5),
+                )
+                if x.action
+                in [
+                    discord.AuditLogAction.member_role_update,
+                ]
+                and x.target.id == after.id
+            ]
+            user = "A user" if not entry else entry[0].user.mention
+            important_channels = [
+                c
+                for c in before.guild.text_channels
+                if any(re.match(name, c.name) for name in self.protected_channel_names)
+            ]
+            for channel in important_channels:
+                member_can_view_before = channel.permissions_for(before).read_messages
+                member_can_view_after = channel.permissions_for(after).read_messages
+                if member_can_view_after and not member_can_view_before:
+                    roles_given = set(after.roles) - set(before.roles)
+                    roles_given_str = (
+                        f"{{{', '.join(f'{role.name}' for role in roles_given)}}}"
+                    )
+                    await channel.send(
+                        f"{user} added **{after.display_name}** to this channel via giving them the {roles_given_str} roles. Welcome {after.mention}! :wave:",
+                    )
+                elif not member_can_view_after and member_can_view_before:
+                    roles_taken = set(before.roles) - set(after.roles)
+                    roles_taken_str = (
+                        f"{{{', '.join(f'{role.name}' for role in roles_taken)}}}"
+                    )
+                    await channel.send(
+                        f"{user} removed **{after.display_name}** from this channel via removing the {roles_taken_str} roles. Adios! :wave:",
+                    )
 
 
 async def setup(bot: MILBot):
