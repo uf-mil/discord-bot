@@ -92,11 +92,13 @@ class MILBot(commands.Bot):
     general_channel: discord.TextChannel
     member_services_channel: discord.TextChannel
     errors_channel: discord.TextChannel
-    github_updates_channel: discord.TextChannel
+    software_github_channel: discord.TextChannel
     software_projects_channel: discord.TextChannel
+    electrical_category_channel: discord.CategoryChannel
     software_category_channel: discord.CategoryChannel
     operations_leaders_channel: discord.TextChannel
     software_leaders_channel: discord.TextChannel
+    electrical_leaders_channel: discord.TextChannel
 
     # Emojis
     loading_emoji: str
@@ -294,12 +296,42 @@ class MILBot(commands.Bot):
         assert isinstance(software_leaders_channel, discord.TextChannel)
         self.software_leaders_channel = software_leaders_channel
 
-        github_updates_channel = discord.utils.get(
+        electrical_leaders_channel = discord.utils.get(
+            self.active_guild.text_channels,
+            name="electrical-leadership",
+        )
+        assert isinstance(electrical_leaders_channel, discord.TextChannel)
+        self.electrical_leaders_channel = electrical_leaders_channel
+
+        software_category_channel = discord.utils.get(
+            self.active_guild.categories,
+            name="Software",
+        )
+        assert isinstance(software_category_channel, discord.CategoryChannel)
+        self.software_category_channel = software_category_channel
+
+        electrical_category_channel = discord.utils.get(
+            self.active_guild.categories,
+            name="Electrical",
+        )
+        assert isinstance(electrical_category_channel, discord.CategoryChannel)
+        self.electrical_category_channel = electrical_category_channel
+
+        el_github_updates_channel = discord.utils.get(
             self.active_guild.text_channels,
             name="github-updates",
+            category=self.software_category_channel,
         )
-        assert isinstance(github_updates_channel, discord.TextChannel)
-        self.github_updates_channel = github_updates_channel
+        assert isinstance(el_github_updates_channel, discord.TextChannel)
+        self.software_github_channel = el_github_updates_channel
+
+        el_github_updates_channel = discord.utils.get(
+            self.active_guild.text_channels,
+            name="github-updates",
+            category=self.electrical_category_channel,
+        )
+        assert isinstance(el_github_updates_channel, discord.TextChannel)
+        self.electrical_github_channel = el_github_updates_channel
 
         errors_channel = discord.utils.get(
             self.active_guild.text_channels,
@@ -314,13 +346,6 @@ class MILBot(commands.Bot):
         )
         assert isinstance(software_projects_channel, discord.TextChannel)
         self.software_projects_channel = software_projects_channel
-
-        software_category_channel = discord.utils.get(
-            self.active_guild.categories,
-            name="Software",
-        )
-        assert isinstance(software_category_channel, discord.CategoryChannel)
-        self.software_category_channel = software_category_channel
 
         # Roles
         egn4912_role = discord.utils.get(

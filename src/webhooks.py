@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime
 from typing import TYPE_CHECKING
 
+import discord
 from discord.ext import commands
 from discord.ext.ipc.objects import ClientPayload
 from discord.ext.ipc.server import Server
@@ -57,6 +58,26 @@ class Webhooks(commands.Cog):
             return text[: text.index("\n")][:1000] + "..."
         return text[:1000]
 
+    def updates_channel(self, repository_or_login: dict | str) -> discord.TextChannel:
+        login = (
+            repository_or_login
+            if isinstance(repository_or_login, str)
+            else repository_or_login["owner"]["login"]
+        )
+        if login.startswith("uf-mil-electrical"):
+            return self.bot.electrical_github_channel
+        return self.bot.software_github_channel
+
+    def leaders_channel(self, repository_or_login: dict | str) -> discord.TextChannel:
+        login = (
+            repository_or_login
+            if isinstance(repository_or_login, str)
+            else repository_or_login["owner"]["login"]
+        )
+        if login.startswith("uf-mil-electrical"):
+            return self.bot.electrical_leaders_channel
+        return self.bot.software_leaders_channel
+
     @Server.route()
     async def push(self, payload: ClientPayload):
         gh = payload.github_data
@@ -72,6 +93,7 @@ class Webhooks(commands.Cog):
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         compare = f"[diff]({gh['compare']})"
         commit_count = len(gh["commits"])
+        updates_channel = self.updates_channel(gh["repository"])
         if gh["ref"] == "refs/heads/master" or gh["ref"] == "refs/heads/main":
             if commit_count == 1:
                 by_statement = (
@@ -80,7 +102,7 @@ class Webhooks(commands.Cog):
                     else ""
                 )
                 message = f"\"{self.natural_wrap(gh['head_commit']['message'])}\""
-                await self.bot.github_updates_channel.send(
+                await updates_channel.send(
                     f"{name} {pushed} a commit{by_statement} to {branch} in {repo} ({compare}): {message}",
                 )
             else:
@@ -89,7 +111,7 @@ class Webhooks(commands.Cog):
                     for commit in gh["commits"]
                 ]
                 formatted_commits_str = "\n".join(formatted_commits)
-                await self.bot.github_updates_channel.send(
+                await updates_channel.send(
                     f"{name} {pushed} {commit_count} commits to {branch} in {repo} ({compare}):\n{formatted_commits_str}",
                 )
 
@@ -100,7 +122,8 @@ class Webhooks(commands.Cog):
         # [User A](link) starred [repo_name](link)
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'],html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
-        await self.bot.github_updates_channel.send(f"{name} added a star to {repo}")
+        updates_channel = self.updates_channel(gh["repository"])
+        await updates_channel.send(f"{name} added a star to {repo}")
 
     @Server.route()
     async def issues_opened(self, payload: ClientPayload):
@@ -113,7 +136,8 @@ class Webhooks(commands.Cog):
         issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         title = f"\"{gh['issue']['title']}\""
-        await self.bot.github_updates_channel.send(
+        updates_channel = self.updates_channel(gh["repository"])
+        await updates_channel.send(
             f"{name} opened issue {issue} in {repo}: {title}",
         )
 
@@ -133,7 +157,8 @@ class Webhooks(commands.Cog):
             else "not planned"
         )
         title = f"\"{gh['issue']['title']}\""
-        await self.bot.github_updates_channel.send(
+        updates_channel = self.updates_channel(gh["repository"])
+        await updates_channel.send(
             f"{name} closed issue {issue} as {state} in {repo}: {title}",
         )
 
@@ -151,7 +176,8 @@ class Webhooks(commands.Cog):
         teams = ", ".join(
             [f"[{team['name']}]({self.url(team, html=True)})" for team in teams_resp],
         )
-        await self.bot.software_leaders_channel.send(
+        updates_channel = self.updates_channel(gh["organization"]["login"])
+        await updates_channel.send(
             f"{name} invited {invited} to {org} in the following teams: {{{teams}}}",
         )
 
@@ -162,7 +188,8 @@ class Webhooks(commands.Cog):
         # [User A](link) accepted an invitation to join [organization_name](link)
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
         org = f"[{gh['organization']['login']}]({self.url(gh['organization'])})"
-        await self.bot.software_leaders_channel.send(
+        updates_channel = self.updates_channel(gh["organization"]["login"])
+        await updates_channel.send(
             f"{name} accepted an invitation to join {org}",
         )
 
@@ -173,7 +200,8 @@ class Webhooks(commands.Cog):
         # [User A](link) was removed from [organization_name](link)
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
         org = f"[{gh['organization']['login']}]({self.url(gh['organization'])})"
-        await self.bot.software_leaders_channel.send(f"{name} was removed from {org}")
+        updates_channel = self.updates_channel(gh["organization"]["login"])
+        await updates_channel.send(f"{name} was removed from {org}")
 
     @Server.route()
     async def pull_request_opened(self, payload: ClientPayload):
@@ -184,7 +212,8 @@ class Webhooks(commands.Cog):
         pr = f"[#{gh['pull_request']['number']}]({self.url(gh['pull_request'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         title = f"\"{gh['pull_request']['title']}\""
-        await self.bot.github_updates_channel.send(
+        updates_channel = self.updates_channel(gh["repository"])
+        await updates_channel.send(
             f"{name} opened pull request {pr} in {repo}: {title}",
         )
 
@@ -203,7 +232,8 @@ class Webhooks(commands.Cog):
             if gh["pull_request"]["user"]["login"] != gh["sender"]["login"]
             else ""
         )
-        await self.bot.github_updates_channel.send(
+        updates_channel = self.updates_channel(gh["repository"])
+        await updates_channel.send(
             f"{name} {'merged' if gh['pull_request']['merged'] else 'closed'} pull request {pr}{by_statement} in {repo}: {title}",
         )
 
@@ -216,7 +246,8 @@ class Webhooks(commands.Cog):
         requested = f"[{await self.real_name(gh['requested_reviewer']['login'])}]({self.url(gh['requested_reviewer'], html=True)})"
         pr = f"[#{gh['pull_request']['number']}]({self.url(gh['pull_request'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
-        await self.bot.github_updates_channel.send(
+        updates_channel = self.updates_channel(gh["repository"])
+        await updates_channel.send(
             f"{name} requested a review from {requested} on pull request {pr} in {repo}",
         )
 
@@ -228,7 +259,8 @@ class Webhooks(commands.Cog):
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
         pr = f"[#{gh['pull_request']['number']}]({self.url(gh['pull_request'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
-        await self.bot.github_updates_channel.send(
+        updates_channel = self.updates_channel(gh["repository"])
+        await updates_channel.send(
             f"{name} submitted a review on pull request {pr} in {repo}",
         )
 
@@ -241,7 +273,8 @@ class Webhooks(commands.Cog):
         commit = f"[`{gh['comment']['commit_id'][:7]}`]({self.url(gh['comment'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         comment = f"\"{self.natural_wrap(gh['comment']['body'])}\""
-        await self.bot.github_updates_channel.send(
+        updates_channel = self.updates_channel(gh["repository"])
+        await updates_channel.send(
             f"{name} commented on commit {commit} in {repo}: {comment}",
         )
 
@@ -254,7 +287,8 @@ class Webhooks(commands.Cog):
         issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         comment = f"\"{self.natural_wrap(gh['comment']['body'])}\""
-        await self.bot.github_updates_channel.send(
+        updates_channel = self.updates_channel(gh["repository"])
+        await updates_channel.send(
             f"{name} commented on issue {issue} in {repo}: {comment}",
         )
 
@@ -267,12 +301,13 @@ class Webhooks(commands.Cog):
         assigned = f"[{await self.real_name(gh['assignee']['login'])}]({self.url(gh['assignee'], html=True)})"
         issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
+        updates_channel = self.updates_channel(gh["repository"])
         if gh["assignee"]["login"] == gh["sender"]["login"]:
-            await self.bot.github_updates_channel.send(
+            await updates_channel.send(
                 f"{name} self-assigned issue {issue} in {repo}",
             )
         else:
-            await self.bot.github_updates_channel.send(
+            await updates_channel.send(
                 f"{name} assigned {assigned} to issue {issue} in {repo}",
             )
 
@@ -285,12 +320,13 @@ class Webhooks(commands.Cog):
         unassigned = f"[{await self.real_name(gh['assignee']['login'])}]({self.url(gh['assignee'], html=True)})"
         issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
+        updates_channel = self.updates_channel(gh["repository"])
         if gh["assignee"]["login"] == gh["sender"]["login"]:
-            await self.bot.github_updates_channel.send(
+            await updates_channel.send(
                 f"{name} unassigned themself from issue {issue} in {repo}",
             )
         else:
-            await self.bot.github_updates_channel.send(
+            await updates_channel.send(
                 f"{name} unassigned {unassigned} from issue {issue} in {repo}",
             )
 
@@ -303,8 +339,9 @@ class Webhooks(commands.Cog):
         pr = f"[#{gh['pull_request']['number']}]({self.url(gh['pull_request'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         title = f"\"{gh['pull_request']['title']}\""
+        updates_channel = self.updates_channel(gh["repository"])
         if gh["changes"]["title"]:
-            await self.bot.github_updates_channel.send(
+            await updates_channel.send(
                 f"{name} edited the title of pull request {pr} in {repo} to {title}",
             )
 
@@ -318,8 +355,9 @@ class Webhooks(commands.Cog):
         added = f"[{await self.real_name(gh['member']['login'])}]({self.url(gh['member'], html=True)})"
         team = f"[{gh['team']['name']}]({self.url(gh['team'], html=True)})"
         org = f"[{gh['organization']['login']}]({self.url(gh['organization'])})"
+        leaders_channel = self.leaders_channel(gh["organization"]["login"])
         if "core" in team.lower():
-            await self.bot.software_leaders_channel.send(
+            await leaders_channel.send(
                 f"{name} added {added} to {team} in {org}",
             )
 
@@ -330,7 +368,8 @@ class Webhooks(commands.Cog):
         # [User A](link) made [repo_name](link) public
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
-        await self.bot.github_updates_channel.send(f"{name} made {repo} public")
+        updates_channel = self.updates_channel(gh["repository"])
+        await updates_channel.send(f"{name} made {repo} public")
 
     @Server.route()
     async def repository_created(self, payload: ClientPayload):
@@ -339,7 +378,8 @@ class Webhooks(commands.Cog):
         # [User A](link) created [repo_name](link)
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
-        await self.bot.github_updates_channel.send(f"{name} created {repo}")
+        updates_channel = self.updates_channel(gh["repository"])
+        await updates_channel.send(f"{name} created {repo}")
 
     @Server.route()
     async def repository_deleted(self, payload: ClientPayload):
@@ -348,7 +388,8 @@ class Webhooks(commands.Cog):
         # [User A](link) deleted [repo_name](link)
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
-        await self.bot.github_updates_channel.send(f"{name} deleted {repo}")
+        updates_channel = self.updates_channel(gh["repository"])
+        await updates_channel.send(f"{name} deleted {repo}")
 
     @Server.route()
     async def check_suite_completed(self, payload: ClientPayload):
@@ -377,7 +418,8 @@ class Webhooks(commands.Cog):
             commit = f"[`{gh['check_suite']['head_sha'][:7]}`](<https://github.com/{gh['repository']['full_name']}/commit/{gh['check_suite']['head_sha']}>)"
             repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
             branch = f"`{gh['check_suite']['head_branch']}`"
-            await self.bot.software_leaders_channel.send(
+            leaders_channel = self.leaders_channel(gh["repository"])
+            await leaders_channel.send(
                 f"{failed_count} failed ({failed_links_str}) on commit {commit} by {name} in {repo} on {branch}",
             )
 
