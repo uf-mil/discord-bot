@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 import discord
 from discord import app_commands
 from discord.ext import commands
+from discord.ext.ipc.errors import NoEndpointFound
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +126,28 @@ class MILBotErrorHandler:
                 f"```py\n{traceback.format_exc()}\n```",
             )
             await ctx.reply(message)
+
+    async def handle_ipc_exception(
+        self,
+        bot: MILBot,
+        endpoint: str,
+        error: Exception,
+    ):
+        try:
+            raise error
+        except NoEndpointFound:
+            return
+        except Exception:
+            logger.exception(
+                f"{error.__class__.__name__} occurred in `{endpoint}` endpoint.",
+            )
+        exc_format = "".join(
+            traceback.format_exception(type(error), error, error.__traceback__),
+        )
+        await bot.errors_channel.send(
+            f"**{error.__class__.__name__}** occurred in `{endpoint}` ipc endpoint:\n"
+            f"```py\n{exc_format}\n```",
+        )
 
     async def handle_interaction_exception(
         self,

@@ -456,6 +456,10 @@ class MILBot(commands.Bot):
         self.handler = MILBotErrorHandler()
         await self.handler.handle_event_exception(event, self)
 
+    async def on_ipc_error(self, endpoint, error):
+        self.handler = MILBotErrorHandler()
+        await self.handler.handle_ipc_exception(self, endpoint, error)
+
     async def on_command_error(self, ctx, error):
         self.handler = MILBotErrorHandler()
         await self.handler.handle_command_exception(ctx, error)
