@@ -78,6 +78,16 @@ class Webhooks(commands.Cog):
             return self.bot.electrical_leaders_channel
         return self.bot.software_leaders_channel
 
+    def notify_channels(self, labels: list[dict]) -> list[discord.TextChannel]:
+        notify_channel_names = [
+            label["name"][:-7] for label in labels if label["name"].endswith("-notify")
+        ]
+        return [
+            c
+            for c in self.bot.active_guild.text_channels
+            if c.name in notify_channel_names
+        ]
+
     @Server.route()
     async def push(self, payload: ClientPayload):
         gh = payload.github_data
@@ -137,9 +147,10 @@ class Webhooks(commands.Cog):
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         title = f"\"{gh['issue']['title']}\""
         updates_channel = self.updates_channel(gh["repository"])
-        await updates_channel.send(
-            f"{name} opened issue {issue} in {repo}: {title}",
-        )
+        message = f"{name} opened issue {issue} in {repo}: {title}"
+        await updates_channel.send(message)
+        for channel in self.notify_channels(gh["issue"]["labels"]):
+            await channel.send(message)
 
     @Server.route()
     async def issues_closed(self, payload: ClientPayload):
@@ -158,9 +169,10 @@ class Webhooks(commands.Cog):
         )
         title = f"\"{gh['issue']['title']}\""
         updates_channel = self.updates_channel(gh["repository"])
-        await updates_channel.send(
-            f"{name} closed issue {issue} as {state} in {repo}: {title}",
-        )
+        message = f"{name} closed issue {issue} as {state} in {repo}: {title}"
+        await updates_channel.send(message)
+        for channel in self.notify_channels(gh["issue"]["labels"]):
+            await channel.send(message)
 
     @Server.route()
     async def organization_member_invited(self, payload: ClientPayload):
@@ -302,14 +314,13 @@ class Webhooks(commands.Cog):
         issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         updates_channel = self.updates_channel(gh["repository"])
-        if gh["assignee"]["login"] == gh["sender"]["login"]:
-            await updates_channel.send(
-                f"{name} self-assigned issue {issue} in {repo}",
-            )
-        else:
-            await updates_channel.send(
-                f"{name} assigned {assigned} to issue {issue} in {repo}",
-            )
+        # If the issue has a *-notify label, send a message to the relevant channel
+        message = (
+            f"{name} self-assigned issue {issue} in {repo}"
+            if gh["assignee"]["login"] == gh["sender"]["login"]
+            else f"{name} assigned {assigned} to issue {issue} in {repo}"
+        )
+        await updates_channel.send(message)
 
     @Server.route()
     async def issues_unassigned(self, payload: ClientPayload):
@@ -321,14 +332,12 @@ class Webhooks(commands.Cog):
         issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         updates_channel = self.updates_channel(gh["repository"])
-        if gh["assignee"]["login"] == gh["sender"]["login"]:
-            await updates_channel.send(
-                f"{name} unassigned themself from issue {issue} in {repo}",
-            )
-        else:
-            await updates_channel.send(
-                f"{name} unassigned {unassigned} from issue {issue} in {repo}",
-            )
+        message = (
+            f"{name} unassigned themself from issue {issue} in {repo}"
+            if gh["assignee"]["login"] == gh["sender"]["login"]
+            else f"{name} unassigned {unassigned} from issue {issue} in {repo}"
+        )
+        await updates_channel.send(message)
 
     @Server.route()
     async def pull_request_edited(self, payload: ClientPayload):
