@@ -17,6 +17,7 @@ BREAKS = [
 
 SCHWARTZ_EMAIL = "ems@ufl.edu"
 
+
 def semester_given_date(
     date: datetime.datetime,
     *,
@@ -28,6 +29,7 @@ def semester_given_date(
         if next_semester and date.date() < semester[0]:
             return semester
     return None
+
 
 class Team(enum.Enum):
     SOFTWARE = auto()

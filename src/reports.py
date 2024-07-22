@@ -11,10 +11,9 @@ from typing import TYPE_CHECKING
 
 import discord
 import gspread
-import gspread_asyncio
 from discord.ext import commands
 
-from .constants import SCHWARTZ_EMAIL, Team, semester_given_date
+from .constants import BREAKS, SCHWARTZ_EMAIL, Team, semester_given_date
 from .email import Email
 from .tasks import run_on_weekday
 from .utils import is_active, ordinal
@@ -64,10 +63,7 @@ class WeekColumn:
 
     @staticmethod
     def _is_break(date: datetime.date) -> bool:
-        for start, end in BREAKS:
-            if start <= date <= end:
-                return True
-        return False
+        return any(start <= date <= end for start, end in BREAKS)
 
     def _date_to_index(self, date: datetime.date) -> int:
         current_date = self._start_date()
@@ -143,6 +139,7 @@ class WeekColumn:
             raise ValueError(
                 f"Cannot create report column with index {self.report_column}.",
             )
+
 
 class FiringEmail(Email):
     """
