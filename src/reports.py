@@ -62,8 +62,21 @@ class WeekColumn:
             raise RuntimeError("No semester is occurring right now!")
         return semester[1]
 
+    @staticmethod
+    def _is_break(date: datetime.date) -> bool:
+        for start, end in BREAKS:
+            if start <= date <= end:
+                return True
+        return False
+
     def _date_to_index(self, date: datetime.date) -> int:
-        return (date - self._start_date()).days // 7 + 1
+        current_date = self._start_date()
+        week_index = 0
+        while current_date <= date:
+            if not self._is_break(current_date):
+                week_index += 1
+            current_date += datetime.timedelta(days=7)
+        return week_index
 
     @property
     def week(self) -> int:
@@ -78,7 +91,12 @@ class WeekColumn:
         """
         Inclusive date range for this column.
         """
-        start_date = self._start_date() + datetime.timedelta(weeks=self.week)
+        start_date = self._start_date()
+        current_week = 0
+        while current_week < self.week:
+            if not self._is_break(start_date):
+                current_week += 1
+            start_date += datetime.timedelta(days=7)
         end_date = start_date + datetime.timedelta(days=6)
         return start_date, end_date
 
@@ -91,7 +109,7 @@ class WeekColumn:
 
     @classmethod
     def from_date(cls, date: datetime.date):
-        col_offset = (date - cls._start_date()).days // 7
+        col_offset = cls._date_to_index(cls, date)
         # Each week has two columns: one for the report and one for the score
         # +1 because columns are 1-indexed
         return cls((col_offset * 2) + 1 + len(Column))
@@ -125,7 +143,6 @@ class WeekColumn:
             raise ValueError(
                 f"Cannot create report column with index {self.report_column}.",
             )
-
 
 class FiringEmail(Email):
     """
@@ -710,23 +727,6 @@ class ReportsCog(commands.Cog):
         self.first_individual_reminder.start(self)
         self.second_individual_reminder.start(self)
         self.update_report_channel.start(self)
-
-    @run_on_weekday(calendar.FRIDAY, 12, 0, check=is_active)
-    async def post_reminder(self):
-        general_channel = self.bot.general_channel
-        return await general_channel.send(
-            f"{self.bot.egn4912_role.mention}\nHey everyone! Friendly reminder to submit your weekly progress reports by **Sunday night at 11:59pm**. You can submit your reports in the {self.bot.member_services_channel.mention} channel. If you have any questions, please contact your leader. Thank you!",
-        )
-
-    async def safe_col_values(
-        self,
-        ws: gspread_asyncio.AsyncioGspreadWorksheet,
-        column: int,
-    ) -> list[str]:
-        names = await ws.col_values(column)
-        if not isinstance(names, list):
-            raise RuntimeError("Column is missing!")
-        return [n or "" for n in names]
 
     async def students_status(self, column: int) -> list[Student]:
         main_worksheet = await self.bot.sh.get_worksheet(0)

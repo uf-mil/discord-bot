@@ -9,8 +9,13 @@ SEMESTERS = [
     (datetime.date(2024, 1, 8), datetime.date(2024, 4, 28)),
     (datetime.date(2024, 5, 20), datetime.date(2024, 7, 29)),
 ]
-SCHWARTZ_EMAIL = "ems@ufl.edu"
 
+BREAKS = [
+    (datetime.date(2024, 11, 25), datetime.date(2024, 11, 29)),
+    (datetime.date(2024, 3, 10), datetime.date(2024, 3, 15)),
+]
+
+SCHWARTZ_EMAIL = "ems@ufl.edu"
 
 def semester_given_date(
     date: datetime.datetime,
@@ -23,7 +28,6 @@ def semester_given_date(
         if next_semester and date.date() < semester[0]:
             return semester
     return None
-
 
 class Team(enum.Enum):
     SOFTWARE = auto()
