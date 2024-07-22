@@ -308,7 +308,115 @@ class GitHub:
         projects.sort(key=lambda p: p.title)
         return projects
 
+    async def get_software_issues(
+            self, 
+            is_open = True, 
+            updated_after: datetime.datetime | None = None,
+            assignee: str | None = None,
+            createdBy: str | None = None,
+            labels: list[str] | None = None,
+        ):
+        
+        query = """
+            query {
+                organization(login: "uf-mil") {
+                    repositories (first: 5, hasIssuesEnabled: true) {
+                        edges {
+                            node {
+                                name
+                            }
+                        }
+                    }
+                }
+            }
+        """
+        
+        software_issues = dict()
+        response = await self.fetch(
+            url = "https://api.github.com/graphql",
+            method="POST",
+            data=json.dumps({"query": query}),
+        )
+            
+        for repo in response["data"]["organization"]["repositories"]["edges"]:
+            issues = await self.bot.github.get_repo_issues(
+                name = repo["node"]["name"],
+                is_open = is_open,
+                updated_after = updated_after,
+                assignee = assignee,
+                createdBy = createdBy,
+                labels = labels,
+            )
+            software_issues.update({(repo["node"]["name"]): issues})
 
+        return software_issues
+    
+    async def get_repo_issues(
+            self,
+            name: str,
+            is_open = True, 
+            updated_after: datetime.datetime | None = None,
+            after: str = "",
+            assignee: str | None = None,
+            createdBy: str | None = None,
+            labels: list[str] | None = None,
+        ):
+
+        query = f"""
+            query {{ 
+                organization(login: \"uf-mil\") {{
+                    repository(name: \"{name}\") {{
+                        issues( 
+                            first: 100, 
+                            states: {'OPEN' if is_open else 'CLOSED'},
+                            after : \"{after}\", 
+                            filterBy: {{
+                                {'assignee : \"' + assignee + '\"' if assignee else ""},
+                                {'createdBy : \"' + createdBy + '\"' if createdBy else ""},
+                                {'labels : \"' + labels + '\"' if labels else "" },
+                                {'since : \"' + datetime.datetime.isoformat(updated_after) + '\"' if updated_after else ""}
+                            }}
+                        ) {{
+                            edges {{
+                                node {{
+                                    title
+                                    id
+                                    bodyText           
+                                    createdAt
+                                    updatedAt
+                                    url
+                                }}
+                            }}
+                
+                            pageInfo {{
+                                    endCursor
+                                    hasNextPage
+                            }}
+                        }}
+                    }}
+                }}
+            }}
+        """
+            
+        response = await self.fetch(
+            url = "https://api.github.com/graphql",
+            method="POST",
+            data= json.dumps({"query": query})
+        )
+
+        software_issues = list()
+        for issue in response["data"]["organization"]["repository"]["issues"]["edges"]:
+            software_issues.append(issue["node"])
+            
+        if response["data"]["organization"]["repository"]["issues"]["pageInfo"]["hasNextPage"]:
+            software_issues.append(
+                name = name,
+                is_open = is_open,
+                after = response["data"]["organization"]["repository"]["issues"]["pageInfo"]["endCursor"],
+            )    
+        
+        return software_issues
+    
 class GitHubCog(commands.Cog):
     def __init__(self, bot: MILBot):
         self.bot = bot

@@ -218,6 +218,7 @@ class MILBot(commands.Bot):
             "src.webhooks",
             "src.welcome",
             "src.testing",
+            "src.issues",
         )
         for i, extension in enumerate(extensions):
             try:
