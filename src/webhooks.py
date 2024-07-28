@@ -93,6 +93,10 @@ class Webhooks(commands.Cog):
         gh = payload.github_data
         # If push to master, send message to github-updates in the form of:
         # [User A](link) [pushed](commit_url) 1 commit to [branch_name](link) in [repo_name](link): "commit message"
+
+        # Ignore branch deletions
+        if gh["head_commit"] is None:
+            return
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
         pushed = (
             f"[{'force-' if gh['forced'] else ''}pushed]({self.url(gh['head_commit'])})"
@@ -425,6 +429,11 @@ class Webhooks(commands.Cog):
         gh = payload.github_data
         # Send a message to github-updates in the form of:
         # [User A](link) commented on issue [#XXX](link) in [repo_name](link): "comment"
+
+        # Ignore uf-mil-bot comments (which are automated and not useful to notify on)
+        if gh["sender"]["login"] == "uf-mil-bot":
+            return
+
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
         issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
@@ -465,6 +474,38 @@ class Webhooks(commands.Cog):
             await leaders_channel.send(
                 f"{failed_count} failed ({failed_links_str}) on commit {commit} by {name} in {repo} on {branch}",
             )
+
+    @Server.route()
+    async def label_created(self, payload: ClientPayload):
+        gh = payload.github_data
+        # Send a message to github-updates in the form of:
+        # [User A](link) created label "label_name" in [repo_name](link)
+
+        # Ignore *-notify labels
+        if gh["label"]["name"].endswith("-notify"):
+            return
+
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        label = f"\"{gh['label']['name']}\""
+        repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
+        updates_channel = self.updates_channel(gh["repository"])
+        await updates_channel.send(f"{name} created label {label} in {repo}")
+
+    @Server.route()
+    async def label_deleted(self, payload: ClientPayload):
+        gh = payload.github_data
+        # Send a message to github-updates in the form of:
+        # [User A](link) deleted label "label_name" in [repo_name](link)
+
+        # Ignore *-notify labels
+        if gh["label"]["name"].endswith("-notify"):
+            return
+
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        label = f"\"{gh['label']['name']}\""
+        repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
+        updates_channel = self.updates_channel(gh["repository"])
+        await updates_channel.send(f"{name} deleted label {label} in {repo}")
 
 
 async def setup(bot: MILBot):
