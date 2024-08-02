@@ -887,18 +887,21 @@ class ReportsCog(commands.Cog):
 
     @run_on_weekday([calendar.MONDAY, calendar.WEDNESDAY], 0, 0)
     async def update_report_channel(self):
+        # member-services messages:
+        #   channel_history[0] --> anonymous report message
+        #   channel_history[1] --> report view message
         channel_history = [
             m
             async for m in self.bot.member_services_channel.history(
-                limit=1,
+                oldest_first=True,
+                limit=2,
             )
         ]
         if not channel_history:
             return
 
-        last_message = channel_history[0]
-        if last_message.author == self.bot.user:
-            await last_message.edit(view=ReportsView(self.bot))
+        reports_message = channel_history[1]
+        await reports_message.edit(view=ReportsView(self.bot))
 
     @commands.is_owner()
     @commands.command()
