@@ -64,6 +64,12 @@ class Webhooks(commands.Cog):
             if isinstance(repository_or_login, str)
             else repository_or_login["owner"]["login"]
         )
+        if (
+            isinstance(repository_or_login, dict)
+            and "full_name" in repository_or_login
+            and (repository_or_login["full_name"] == "uf-mil/sw-leadership")
+        ):
+            return self.bot.software_leaders_channel
         if login.startswith("uf-mil-electrical"):
             return self.bot.electrical_github_channel
         return self.bot.software_github_channel
