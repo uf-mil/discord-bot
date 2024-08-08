@@ -50,14 +50,14 @@ class WeekColumn:
 
     @classmethod
     def _start_date(cls) -> datetime.date:
-        semester = semester_given_date(datetime.datetime.now())
+        semester = semester_given_date(datetime.datetime.now(), last_semester=True)
         if not semester:
             raise RuntimeError("No semester is occurring right now!")
         return semester[0]
 
     @classmethod
     def _end_date(cls) -> datetime.date:
-        semester = semester_given_date(datetime.datetime.now())
+        semester = semester_given_date(datetime.datetime.now(), last_semester=True)
         if not semester:
             raise RuntimeError("No semester is occurring right now!")
         return semester[1]
@@ -119,9 +119,19 @@ class WeekColumn:
 
     def __post_init__(self):
         weeks = (self._end_date() - self._start_date()).days // 7
-        if self.report_column < len(Column) + 1 or self.report_column > len(
-            Column,
-        ) + 1 + (weeks * 2):
+        semester = semester_given_date(datetime.datetime.today())
+        # Ensure that the column is an actual column in the sheet
+        # If a semester is not currently happening, disable this, as we're probably not referencing new columns
+        if (
+            semester
+            and self.report_column < len(Column) + 1
+            or self.report_column
+            > len(
+                Column,
+            )
+            + 1
+            + (weeks * 2)
+        ):
             raise ValueError(
                 f"Cannot create report column with index {self.report_column}.",
             )
