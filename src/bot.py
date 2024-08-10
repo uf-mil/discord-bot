@@ -309,7 +309,7 @@ class MILBot(commands.Bot):
             name="mechanical-leadership",
         )
         assert isinstance(mechanical_leaders_channel, discord.TextChannel)
-        self.electrical_leaders_channel = mechanical_leaders_channel
+        self.mechanical_leaders_channel = mechanical_leaders_channel
 
         software_category_channel = discord.utils.get(
             self.active_guild.categories,
