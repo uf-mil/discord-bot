@@ -70,6 +70,12 @@ class Webhooks(commands.Cog):
             and (repository_or_login["full_name"] == "uf-mil/sw-leadership")
         ):
             return self.bot.software_leaders_channel
+        if (
+            isinstance(repository_or_login, dict)
+            and "full_name" in repository_or_login
+            and (repository_or_login["full_name"] == "uf-mil-mechanical/leadership")
+        ):
+            return self.bot.mechanical_leaders_channel
         if login.startswith("uf-mil-electrical"):
             return self.bot.electrical_github_channel
         return self.bot.software_github_channel
@@ -82,6 +88,8 @@ class Webhooks(commands.Cog):
         )
         if login.startswith("uf-mil-electrical"):
             return self.bot.electrical_leaders_channel
+        if login.startswith("uf-mil-mechanical"):
+            return self.bot.mechanical_leaders_channel
         return self.bot.software_leaders_channel
 
     def notify_channels(self, labels: list[dict]) -> list[discord.TextChannel]:
