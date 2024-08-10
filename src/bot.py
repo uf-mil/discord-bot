@@ -99,6 +99,7 @@ class MILBot(commands.Bot):
     operations_leaders_channel: discord.TextChannel
     software_leaders_channel: discord.TextChannel
     electrical_leaders_channel: discord.TextChannel
+    mechanical_leaders_channel: discord.TextChannel
 
     # Emojis
     loading_emoji: str
@@ -302,6 +303,13 @@ class MILBot(commands.Bot):
         )
         assert isinstance(electrical_leaders_channel, discord.TextChannel)
         self.electrical_leaders_channel = electrical_leaders_channel
+
+        mechanical_leaders_channel = discord.utils.get(
+            self.active_guild.text_channels,
+            name="mechanical-leadership",
+        )
+        assert isinstance(mechanical_leaders_channel, discord.TextChannel)
+        self.mechanical_leaders_channel = mechanical_leaders_channel
 
         software_category_channel = discord.utils.get(
             self.active_guild.categories,

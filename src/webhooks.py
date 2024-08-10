@@ -70,6 +70,12 @@ class Webhooks(commands.Cog):
             and (repository_or_login["full_name"] == "uf-mil/sw-leadership")
         ):
             return self.bot.software_leaders_channel
+        if (
+            isinstance(repository_or_login, dict)
+            and "full_name" in repository_or_login
+            and (repository_or_login["full_name"] == "uf-mil-mechanical/leadership")
+        ):
+            return self.bot.mechanical_leaders_channel
         if login.startswith("uf-mil-electrical"):
             return self.bot.electrical_github_channel
         return self.bot.software_github_channel
@@ -82,6 +88,8 @@ class Webhooks(commands.Cog):
         )
         if login.startswith("uf-mil-electrical"):
             return self.bot.electrical_leaders_channel
+        if login.startswith("uf-mil-mechanical"):
+            return self.bot.mechanical_leaders_channel
         return self.bot.software_leaders_channel
 
     def notify_channels(self, labels: list[dict]) -> list[discord.TextChannel]:
@@ -190,7 +198,11 @@ class Webhooks(commands.Cog):
         # Send a message to software-leadership in the form of:
         # [User A](link) invited [User B](link) to [organization_name](link) in the following teams: {Team A, Team B}
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
-        invited = f"[{await self.real_name(gh['user']['login'])}]({self.url(gh['user'], html=True)})"
+        invited = (
+            f"[{await self.real_name(gh['user']['login'])}]({self.url(gh['user'], html=True)})"
+            if "user" in gh
+            else gh["email"]
+        )
         org = f"[{gh['organization']['login']}]({self.url(gh['organization'])})"
         teams_resp = await self.bot.github.fetch(
             gh["invitation"]["invitation_teams_url"],
@@ -198,7 +210,7 @@ class Webhooks(commands.Cog):
         teams = ", ".join(
             [f"[{team['name']}]({self.url(team, html=True)})" for team in teams_resp],
         )
-        updates_channel = self.updates_channel(gh["organization"]["login"])
+        updates_channel = self.leaders_channel(gh["organization"]["login"])
         await updates_channel.send(
             f"{name} invited {invited} to {org} in the following teams: {{{teams}}}",
         )
@@ -208,9 +220,9 @@ class Webhooks(commands.Cog):
         gh = payload.github_data
         # Send a message to software-leadership in the form of:
         # [User A](link) accepted an invitation to join [organization_name](link)
-        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        name = f"[{await self.real_name(gh['member']['login'])}]({self.url(gh['member'], html=True)})"
         org = f"[{gh['organization']['login']}]({self.url(gh['organization'])})"
-        updates_channel = self.updates_channel(gh["organization"]["login"])
+        updates_channel = self.leaders_channel(gh["organization"]["login"])
         await updates_channel.send(
             f"{name} accepted an invitation to join {org}",
         )

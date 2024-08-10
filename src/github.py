@@ -35,7 +35,11 @@ class GitHubUsernameModal(MILBotModal):
 
     username = discord.ui.TextInput(label="Username")
 
-    def __init__(self, bot: MILBot, org_name: Literal["uf-mil", "uf-mil-electrical"]):
+    def __init__(
+        self,
+        bot: MILBot,
+        org_name: Literal["uf-mil", "uf-mil-electrical", "uf-mil-mechanical"],
+    ):
         self.bot = bot
         self.org_name = org_name
         super().__init__(title="GitHub Username")
@@ -122,6 +126,20 @@ class GitHubInviteView(MILBotView):
     ):
         await interaction.response.send_modal(
             GitHubUsernameModal(self.bot, "uf-mil-electrical"),
+        )
+
+    @discord.ui.button(
+        label="Invite to uf-mil-mechanical",
+        style=discord.ButtonStyle.secondary,
+        custom_id="github_invite:mechanical",
+    )
+    async def invite_to_uf_mil_mechanical(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button,
+    ):
+        await interaction.response.send_modal(
+            GitHubUsernameModal(self.bot, "uf-mil-mechanical"),
         )
 
 
