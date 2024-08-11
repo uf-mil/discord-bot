@@ -700,6 +700,27 @@ class Webhooks(commands.Cog):
             _post_coro,
         )
 
+    @Server.route()
+    async def projects_v2_created(self, payload: ClientPayload):
+        gh = payload.github_data
+        # Send a message to github-updates in the form of:
+        # [User A](link) created a project [project_name](link)
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        url = f"https://github.com/orgs/{gh['projects_v2']['owner']['login']}/projects/{gh['projects_v2']['number']}"
+        title = f"[{gh['projects_v2']['title']}](<{url}>)"
+        updates_channel = self.updates_channel(gh["organization"]["login"])
+        await updates_channel.send(f"{name} created a project {title}")
+
+    @Server.route()
+    async def projects_v2_deleted(self, payload: ClientPayload):
+        gh = payload.github_data
+        # Send a message to github-updates in the form of:
+        # [User A](link) deleted a project [project_name](link)
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        title = f"\"{gh['projects_v2']['title']}\""
+        updates_channel = self.updates_channel(gh["organization"]["login"])
+        await updates_channel.send(f"{name} deleted a project {title}")
+
 
 async def setup(bot: MILBot):
     await bot.add_cog(Webhooks(bot))
