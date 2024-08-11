@@ -94,6 +94,7 @@ class MILBot(commands.Bot):
     errors_channel: discord.TextChannel
     software_github_channel: discord.TextChannel
     software_projects_channel: discord.TextChannel
+    mechanical_category_channel: discord.CategoryChannel
     electrical_category_channel: discord.CategoryChannel
     software_category_channel: discord.CategoryChannel
     operations_leaders_channel: discord.TextChannel
@@ -137,6 +138,7 @@ class MILBot(commands.Bot):
         self.loading_emoji = "<a:loading:1154245561680138240>"
         if not self.change_status.is_running():
             self.change_status.start()
+        self.tasks.start()
         await self.fetch_vars()
         await self.reports_cog.update_report_channel.run_immediately()
 
@@ -325,6 +327,13 @@ class MILBot(commands.Bot):
         assert isinstance(electrical_category_channel, discord.CategoryChannel)
         self.electrical_category_channel = electrical_category_channel
 
+        mechanical_category_channel = discord.utils.get(
+            self.active_guild.categories,
+            name="Mechanical",
+        )
+        assert isinstance(mechanical_category_channel, discord.CategoryChannel)
+        self.mechanical_category_channel = mechanical_category_channel
+
         el_github_updates_channel = discord.utils.get(
             self.active_guild.text_channels,
             name="github-updates",
@@ -340,6 +349,14 @@ class MILBot(commands.Bot):
         )
         assert isinstance(el_github_updates_channel, discord.TextChannel)
         self.electrical_github_channel = el_github_updates_channel
+
+        mech_github_updates_channel = discord.utils.get(
+            self.active_guild.text_channels,
+            name="github-updates",
+            category=self.mechanical_category_channel,
+        )
+        assert isinstance(mech_github_updates_channel, discord.TextChannel)
+        self.mechanical_github_channel = mech_github_updates_channel
 
         errors_channel = discord.utils.get(
             self.active_guild.text_channels,
