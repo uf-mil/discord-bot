@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import logging
 from typing import TYPE_CHECKING
 
 import discord
@@ -14,6 +15,9 @@ if TYPE_CHECKING:
     from .bot import MILBot
 
 
+logger = logging.getLogger(__name__)
+
+
 class Webhooks(commands.Cog):
     def __init__(self, bot: MILBot):
         self.bot = bot
@@ -24,6 +28,9 @@ class Webhooks(commands.Cog):
         )
         # Map from github username to real name
         self._real_names: dict[str, tuple[str, datetime.datetime]] = {}
+        # Change dates - records the original date of a project item
+        # so that we can compare it to the new date and send a message
+        self._project_v2_item_change_dates: dict[str, datetime.datetime | None] = {}
 
     async def cog_load(self):
         await self.ipc.start()
@@ -78,6 +85,8 @@ class Webhooks(commands.Cog):
             return self.bot.mechanical_leaders_channel
         if login.startswith("uf-mil-electrical"):
             return self.bot.electrical_github_channel
+        if login.startswith("uf-mil-mechanical"):
+            return self.bot.mechanical_github_channel
         return self.bot.software_github_channel
 
     def leaders_channel(self, repository_or_login: dict | str) -> discord.TextChannel:
@@ -91,6 +100,13 @@ class Webhooks(commands.Cog):
         if login.startswith("uf-mil-mechanical"):
             return self.bot.mechanical_leaders_channel
         return self.bot.software_leaders_channel
+
+    def category_channel(self, login: str) -> discord.CategoryChannel:
+        if login.startswith("uf-mil-electrical"):
+            return self.bot.electrical_category_channel
+        if login.startswith("uf-mil-mechanical"):
+            return self.bot.mechanical_category_channel
+        return self.bot.software_category_channel
 
     def notify_channels(self, labels: list[dict]) -> list[discord.TextChannel]:
         notify_channel_names = [
@@ -524,6 +540,186 @@ class Webhooks(commands.Cog):
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         updates_channel = self.updates_channel(gh["repository"])
         await updates_channel.send(f"{name} deleted label {label} in {repo}")
+
+    @Server.route()
+    async def projects_v2_item_created(self, payload: ClientPayload):
+        gh = payload.github_data
+        # This item is queued so that quick updates don't spam channels
+        # Send a message to the relevant project channels in the form of:
+        # [User A](link) added a task to [project_name](link): "task name"
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        proj_title, proj_url, proj_org = await self.bot.github.pvt_title_url_org(
+            gh["projects_v2_item"]["project_node_id"],
+        )
+        project = f"[{proj_title}](<{proj_url}>)"
+        (
+            title,
+            number,
+            url,
+        ) = await self.bot.github.project_item_content_title_number_url(
+            gh["projects_v2_item"]["content_node_id"],
+        )
+        task = f"[#{number}](<{url}>)"
+        item = f'"{title}"'
+        updates_channel = discord.utils.get(
+            self.category_channel(proj_org).text_channels,
+            name=proj_title.lower().replace(" ", "-"),
+        )
+        if not updates_channel:
+            return
+
+        async def _post_coro():
+            await updates_channel.send(
+                f"{name} added a task ({task}) to {project}: {item}",
+            )
+
+        item_id = gh["projects_v2_item"]["node_id"]
+        self.bot.tasks.run_in(
+            datetime.timedelta(seconds=4),
+            f"add_project_item_{item_id}",
+            _post_coro,
+        )
+
+    @Server.route()
+    async def projects_v2_item_edited(self, payload: ClientPayload):
+        gh = payload.github_data
+        # This event is queued so that quick updates don't spam channels
+        # Date format: August 13
+        # Send a message to github-updates in the form of:
+        # - if end date was updated:
+        #   [User A](link) updated the due date of a task (#21) from <prev date> to <new date> in [project_name](link): "task name"
+
+        # Ensure that the end date was updated
+        if gh["changes"]["field_value"]["field_name"] != "End date":
+            return
+
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        proj_title, proj_url, proj_org = await self.bot.github.pvt_title_url_org(
+            gh["projects_v2_item"]["project_node_id"],
+        )
+        project = f"[{proj_title}](<{proj_url}>)"
+        (
+            title,
+            number,
+            url,
+        ) = await self.bot.github.project_item_content_title_number_url(
+            gh["projects_v2_item"]["content_node_id"],
+        )
+        task = f"[#{number}](<{url}>)"
+        item = f'"{title}"'
+        updates_channel = discord.utils.get(
+            self.category_channel(proj_org).text_channels,
+            name=proj_title.lower().replace(" ", "-"),
+        )
+        if not updates_channel:
+            return
+
+        to_dt = (
+            datetime.datetime.fromisoformat(
+                gh["changes"]["field_value"]["to"],
+            ).strftime("%B %d")
+            if gh["changes"]["field_value"]["to"]
+            else "<not set>"
+        )
+        orig_date = (
+            datetime.datetime.fromisoformat(gh["changes"]["field_value"]["from"])
+            if gh["changes"]["field_value"]["from"]
+            else None
+        )
+
+        async def _post_coro():
+            orig_date = self._project_v2_item_change_dates[node_id]
+            prev_dt = (
+                orig_date.strftime("%B %d") if orig_date else "<not previously set>"
+            )
+            if orig_date == to_dt:
+                return
+            # examples: +7d, -2d
+            day_diff = (
+                (
+                    datetime.datetime.fromisoformat(gh["changes"]["field_value"]["to"])
+                    - orig_date
+                ).days
+                if gh["changes"]["field_value"]["to"] and orig_date
+                else None
+            )
+            day_diff_str = (
+                f" ({'+' if day_diff > 0 else ''}{day_diff}d)" if day_diff else ""
+            )
+            await updates_channel.send(
+                f"{name} updated the due date of a task ({task}) from {prev_dt} to {to_dt}{day_diff_str} in {project}: {item}",
+            )
+            self._project_v2_item_change_dates.pop(node_id)
+
+        node_id = gh["projects_v2_item"]["node_id"]
+        if node_id not in self._project_v2_item_change_dates:
+            self._project_v2_item_change_dates[node_id] = orig_date
+
+        self.bot.tasks.run_in(
+            datetime.timedelta(seconds=10),
+            f"post_project_item_{node_id}",
+            _post_coro,
+        )
+
+    @Server.route()
+    async def projects_v2_item_deleted(self, payload: ClientPayload):
+        gh = payload.github_data
+        # This item is queued so that quick updates don't spam channels
+        # Send a message to the relevant project channels in the form of:
+        # [User A](link) removed a task to [project_name](link): "task name"
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        proj_title, proj_url, proj_org = await self.bot.github.pvt_title_url_org(
+            gh["projects_v2_item"]["project_node_id"],
+        )
+        project = f"[{proj_title}](<{proj_url}>)"
+        (
+            title,
+            number,
+            url,
+        ) = await self.bot.github.project_item_content_title_number_url(
+            gh["projects_v2_item"]["content_node_id"],
+        )
+        item = f'"{title}"'
+        task = f"[#{number}](<{url}>)"
+        updates_channel = discord.utils.get(
+            self.category_channel(proj_org).text_channels,
+            name=proj_title.lower().replace(" ", "-"),
+        )
+        if not updates_channel:
+            return
+
+        async def _post_coro():
+            await updates_channel.send(
+                f"{name} removed a task ({task}) from {project}: {item}",
+            )
+
+        item_id = gh["projects_v2_item"]["node_id"]
+        self.bot.tasks.run_in(
+            datetime.timedelta(seconds=30),
+            f"deleted_project_item_{item_id}",
+            _post_coro,
+        )
+
+    @Server.route()
+    async def projects_v2_created(self, payload: ClientPayload):
+        gh = payload.github_data
+        # Send a message to github-updates in the form of:
+        # [User A](link) created a project [project_name](link)
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        url = f"https://github.com/orgs/{gh['projects_v2']['owner']['login']}/projects/{gh['projects_v2']['number']}"
+        title = f"[{gh['projects_v2']['title']}](<{url}>)"
+        updates_channel = self.updates_channel(gh["organization"]["login"])
+        await updates_channel.send(f"{name} created a project {title}")
+
+    @Server.route()
+    async def projects_v2_deleted(self, payload: ClientPayload):
+        gh = payload.github_data
+        # Send a message to github-updates in the form of:
+        # [User A](link) deleted a project [project_name](link)
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        title = f"\"{gh['projects_v2']['title']}\""
+        updates_channel = self.updates_channel(gh["organization"]["login"])
+        await updates_channel.send(f"{name} deleted a project {title}")
 
 
 async def setup(bot: MILBot):

@@ -191,6 +191,74 @@ class GitHub:
         url = f"https://api.github.com/repos/{repo_name}/commits/{hash}/branches-where-head"
         return await self.fetch(url)
 
+    async def pvt_title_url_org(self, id: str) -> tuple[str, str, str]:
+        """
+        Title and URL for a PVT node id.
+        """
+        query = f"""
+        {{
+          node(id: \"{id}\") {{
+            ... on ProjectV2 {{
+              url
+              title
+              owner {{
+                ... on Organization {{
+                  login
+                }}
+              }}
+            }}
+          }}
+        }}
+        """
+        properties = await self.fetch(
+            "https://api.github.com/graphql",
+            method="POST",
+            data=json.dumps({"query": query}),
+        )
+        return (
+            properties["data"]["node"]["title"],
+            properties["data"]["node"]["url"],
+            properties["data"]["node"]["owner"]["login"],
+        )
+
+    async def project_item_content_title_number_url(
+        self,
+        id: str,
+    ) -> tuple[str, int, str]:
+        """
+        Returns the title for a particular project item, presunably either an issue
+        or pull request.
+
+        Args:
+            id(str): Example: I_kwDOMh6AdM6SllQd
+        """
+        query = f"""
+        query {{
+            node(id: \"{id}\") {{
+                ... on Issue {{
+                    title
+                    number
+                    url
+                }}
+                ... on PullRequest {{
+                    title
+                    number
+                    url
+                }}
+            }}
+        }}
+        """
+        properties = await self.fetch(
+            "https://api.github.com/graphql",
+            method="POST",
+            data=json.dumps({"query": query}),
+        )
+        return (
+            properties["data"]["node"]["title"],
+            properties["data"]["node"]["number"],
+            properties["data"]["node"]["url"],
+        )
+
     async def get_checks(self, repo_name: str, hash: str) -> CheckRunsData:
         url = f"https://api.github.com/repos/{repo_name}/commits/{hash}/check-runs"
         extra_headers = {
