@@ -259,6 +259,29 @@ class GitHub:
             properties["data"]["node"]["url"],
         )
 
+    async def project_v2_node_title(self, node_id: str) -> str:
+        """
+        Returns the title of a project node.
+
+        Args:
+            node_id(str): Example: PVT_kwDOCpvu5c4AmagB
+        """
+        query = f"""
+        query {{
+          node(id: \"{node_id}\") {{
+            ... on ProjectV2 {{
+              title
+            }}
+          }}
+        }}
+        """
+        properties = await self.fetch(
+            "https://api.github.com/graphql",
+            method="POST",
+            data=json.dumps({"query": query}),
+        )
+        return properties["data"]["node"]["title"]
+
     async def get_checks(self, repo_name: str, hash: str) -> CheckRunsData:
         url = f"https://api.github.com/repos/{repo_name}/commits/{hash}/check-runs"
         extra_headers = {

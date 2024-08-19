@@ -707,9 +707,22 @@ class Webhooks(commands.Cog):
         # [User A](link) created a project [project_name](link)
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
         url = f"https://github.com/orgs/{gh['projects_v2']['owner']['login']}/projects/{gh['projects_v2']['number']}"
-        title = f"[{gh['projects_v2']['title']}](<{url}>)"
-        updates_channel = self.updates_channel(gh["organization"]["login"])
-        await updates_channel.send(f"{name} created a project {title}")
+        # All projects_v2_created webhooks have the project title listed as
+        # @user's untitled project, so we should wait a little bit of time
+        # and then fetch the title later
+        async def _post_coro():
+            title = await self.bot.github.project_v2_node_title(
+                gh["projects_v2"]["node_id"],
+            )
+            title = f"[{title}](<{url}>)"
+            updates_channel = self.updates_channel(gh["organization"]["login"])
+            await updates_channel.send(f"{name} created a project {title}")
+
+        self.bot.tasks.run_in(
+            datetime.timedelta(seconds=2),
+            f"post_project_{gh['projects_v2']['node_id']}",
+            _post_coro,
+        )
 
     @Server.route()
     async def projects_v2_deleted(self, payload: ClientPayload):
