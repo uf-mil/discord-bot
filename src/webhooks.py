@@ -248,9 +248,9 @@ class Webhooks(commands.Cog):
         gh = payload.github_data
         # Send a message to software-leadership in the form of:
         # [User A](link) was removed from [organization_name](link)
-        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        name = f"[{await self.real_name(gh['membership']['user']['login'])}]({self.url(gh['membership']['user'], html=True)})"
         org = f"[{gh['organization']['login']}]({self.url(gh['organization'])})"
-        updates_channel = self.updates_channel(gh["organization"]["login"])
+        updates_channel = self.leaders_channel(gh["organization"]["login"])
         await updates_channel.send(f"{name} was removed from {org}")
 
     @Server.route()
