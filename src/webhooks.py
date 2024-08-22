@@ -395,7 +395,7 @@ class Webhooks(commands.Cog):
     @Server.route()
     async def membership_added(self, payload: ClientPayload):
         gh = payload.github_data
-        # If the user is being added to a team with the 'core' word in the name, notify software-leadership
+        # If the user is being added to a team with the 'lead' word in the name, notify leads channel
         # Send a message to software-leadership in the form of:
         # [User A](link) added [User B](link) to [team_name](link) in [organization_name](link)
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
@@ -403,9 +403,25 @@ class Webhooks(commands.Cog):
         team = f"[{gh['team']['name']}]({self.url(gh['team'], html=True)})"
         org = f"[{gh['organization']['login']}]({self.url(gh['organization'])})"
         leaders_channel = self.leaders_channel(gh["organization"]["login"])
-        if "core" in team.lower():
+        if "lead" in team.lower():
             await leaders_channel.send(
                 f"{name} added {added} to {team} in {org}",
+            )
+
+    @Server.route()
+    async def membership_removed(self, payload: ClientPayload):
+        gh = payload.github_data
+        # If the user is being removed from a team with the 'lead' word in the name, notify leads channel
+        # Send a message to leads channel in the form of:
+        # [User A](link) removed [User B](link) from [team_name](link) in [organization_name](link)
+        name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
+        removed = f"[{await self.real_name(gh['member']['login'])}]({self.url(gh['member'], html=True)})"
+        team = f"[{gh['team']['name']}]({self.url(gh['team'], html=True)})"
+        org = f"[{gh['organization']['login']}]({self.url(gh['organization'])})"
+        leaders_channel = self.leaders_channel(gh["organization"]["login"])
+        if "lead" in team.lower():
+            await leaders_channel.send(
+                f"{name} removed {removed} from {team} in {org}",
             )
 
     @Server.route()
