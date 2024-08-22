@@ -87,6 +87,8 @@ class Webhooks(commands.Cog):
             return self.bot.electrical_github_channel
         if login.startswith("uf-mil-mechanical"):
             return self.bot.mechanical_github_channel
+        if login.startswith("uf-mil-leadership"):
+            return self.bot.leads_github_channel
         return self.bot.software_github_channel
 
     def leaders_channel(self, repository_or_login: dict | str) -> discord.TextChannel:
@@ -99,6 +101,8 @@ class Webhooks(commands.Cog):
             return self.bot.electrical_leaders_channel
         if login.startswith("uf-mil-mechanical"):
             return self.bot.mechanical_leaders_channel
+        if login.startswith("uf-mil-leadership"):
+            return self.bot.leads_github_channel
         return self.bot.software_leaders_channel
 
     def category_channel(self, login: str) -> discord.CategoryChannel:
@@ -106,6 +110,8 @@ class Webhooks(commands.Cog):
             return self.bot.electrical_category_channel
         if login.startswith("uf-mil-mechanical"):
             return self.bot.mechanical_category_channel
+        if login.startswith("uf-mil-leadership"):
+            return self.bot.leads_category_channel
         return self.bot.software_category_channel
 
     def notify_channels(self, labels: list[dict]) -> list[discord.TextChannel]:

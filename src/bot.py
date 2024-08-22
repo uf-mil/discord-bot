@@ -93,9 +93,13 @@ class MILBot(commands.Bot):
     member_services_channel: discord.TextChannel
     errors_channel: discord.TextChannel
     software_github_channel: discord.TextChannel
+    electrical_github_channel: discord.TextChannel
+    mechanical_github_channel: discord.TextChannel
+    leads_github_channel: discord.TextChannel
     software_projects_channel: discord.TextChannel
     mechanical_category_channel: discord.CategoryChannel
     electrical_category_channel: discord.CategoryChannel
+    leaders_category_channel: discord.CategoryChannel
     software_category_channel: discord.CategoryChannel
     operations_leaders_channel: discord.TextChannel
     software_leaders_channel: discord.TextChannel
@@ -327,6 +331,13 @@ class MILBot(commands.Bot):
         assert isinstance(electrical_category_channel, discord.CategoryChannel)
         self.electrical_category_channel = electrical_category_channel
 
+        leads_category_channel = discord.utils.get(
+            self.active_guild.categories,
+            name="Leadership",
+        )
+        assert isinstance(leads_category_channel, discord.CategoryChannel)
+        self.leads_category_channel = leads_category_channel
+
         mechanical_category_channel = discord.utils.get(
             self.active_guild.categories,
             name="Mechanical",
@@ -357,6 +368,14 @@ class MILBot(commands.Bot):
         )
         assert isinstance(mech_github_updates_channel, discord.TextChannel)
         self.mechanical_github_channel = mech_github_updates_channel
+
+        leads_github_updates_channel = discord.utils.get(
+            self.active_guild.text_channels,
+            name="github-updates",
+            category=self.leads_category_channel,
+        )
+        assert isinstance(leads_github_updates_channel, discord.TextChannel)
+        self.leads_github_channel = leads_github_updates_channel
 
         errors_channel = discord.utils.get(
             self.active_guild.text_channels,
