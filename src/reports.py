@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import calendar
 import datetime
 import itertools
@@ -532,45 +533,74 @@ class ReportsModal(discord.ui.Modal):
             )
 
 
-class SubmitButton(discord.ui.Button):
+class OauthSetupButton(discord.ui.Button):
     def __init__(self, bot: MILBot):
         self.bot = bot
-        if not is_active():
-            super().__init__(
-                label="Reports are not currently active.",
-                style=discord.ButtonStyle.grey,
-                disabled=True,
-                custom_id="reports_view:submit",
-            )
-        elif datetime.datetime.today().weekday() in [calendar.MONDAY, calendar.TUESDAY]:
-            super().__init__(
-                label="Reports can only be submitted between Wednesday and Sunday.",
-                style=discord.ButtonStyle.red,
-                disabled=True,
-                custom_id="reports_view:submit",
-            )
-        else:
-            super().__init__(
-                label="Submit your report!",
-                style=discord.ButtonStyle.green,
-                custom_id="reports_view:submit",
-            )
+        super().__init__(
+            label="Connect/Re-connect your GitHub account",
+            style=discord.ButtonStyle.green,
+            custom_id="reports_view:oauth_connect",
+        )
 
     async def callback(self, interaction: discord.Interaction):
-        # If button is triggered on Monday or Tuesday, send error message
-        if datetime.datetime.today().weekday() in [calendar.MONDAY, calendar.TUESDAY]:
-            return await interaction.response.send_message(
-                ":x: Weekly reports should be submitted between Wednesday and Sunday. While occasional exceptions can be made if you miss a week—simply inform your team lead—this should not become a regular occurrence. Be aware that the submission window closes promptly at 11:59pm on Sunday.",
+        assert isinstance(interaction.user, discord.Member)
+        if (
+            self.bot.egn4912_role not in interaction.user.roles
+            and self.bot.leaders_role not in interaction.user.roles
+        ):
+            await interaction.response.send_message(
+                "❌ You must be an active member of EGN4912 to connect your GitHub account.",
                 ephemeral=True,
             )
+            return
 
-        if not is_active():
-            return await interaction.response.send_message(
-                "❌ The weekly reports system is currently inactive due to the interim period between semesters. Please wait until next semester to document any work you have completed in between semesters. Thank you!",
-                ephemeral=True,
+        device_code_response = await self.bot.github.get_oauth_device_code()
+        code, device_code = (
+            device_code_response["user_code"],
+            device_code_response["device_code"],
+        )
+        button = discord.ui.Button(
+            label="Authorize GitHub",
+            url="https://github.com/login/device",
+        )
+        view = MILBotView()
+        view.add_item(button)
+        expires_in_dt = datetime.datetime.now() + datetime.timedelta(
+            seconds=device_code_response["expires_in"],
+        )
+        await interaction.response.send_message(
+            f"To authorize your GitHub account, please visit the link below using the button and enter the following code:\n`{code}`\n\n* Please note that it may take a few seconds after authorizing in your browser to appear in Discord, due to GitHub limitations.\n* This authorization attempt will expire {discord.utils.format_dt(expires_in_dt, 'R')}.",
+            view=view,
+            ephemeral=True,
+        )
+        access_token = None
+        while not access_token and datetime.datetime.now() < expires_in_dt:
+            await asyncio.sleep(device_code_response["interval"])
+            resp = await self.bot.github.get_oauth_access_token(device_code)
+            if "access_token" in resp:
+                access_token = resp["access_token"]
+            if "error" in resp and resp["error"] == "access_denied":
+                await interaction.edit_original_response(
+                    content="❌ Authorization was denied (did you hit cancel?). Please try again.",
+                    view=None,
+                )
+                return
+        if access_token:
+            async with self.bot.db_factory() as db:
+                await db.add_github_oauth_member(
+                    interaction.user.id,
+                    device_code,
+                    access_token,
+                )
+            await interaction.edit_original_response(
+                content="Thanks! Your GitHub account has been successfully connected.",
+                view=None,
             )
-        # Send modal where user fills out report
-        await interaction.response.send_modal(ReportsModal(self.bot))
+        else:
+            await interaction.edit_original_response(
+                content="❌ Authorization expired. Please try again.",
+                view=None,
+            )
 
 
 class ReportHistoryButton(discord.ui.Button):
@@ -672,7 +702,7 @@ class ReportsView(MILBotView):
     def __init__(self, bot: MILBot):
         self.bot = bot
         super().__init__(timeout=None)
-        self.add_item(SubmitButton(bot))
+        self.add_item(OauthSetupButton(bot))
         self.add_item(ReportHistoryButton(bot))
 
 

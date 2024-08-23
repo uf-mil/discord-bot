@@ -16,11 +16,14 @@ from discord.ext import tasks as ext_tasks
 from google.auth import crypt
 from google.oauth2.service_account import Credentials
 from rich.logging import RichHandler
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from .anonymous import AnonymousReportView
 from .calendar import CalendarView
 from .constants import Team
+from .db import Base, DatabaseFactory
 from .env import (
+    DATABASE_ENGINE_URL,
     DISCORD_TOKEN,
     GITHUB_TOKEN,
     GSPREAD_PRIVATE_KEY,
@@ -125,6 +128,7 @@ class MILBot(commands.Bot):
     tasks: TaskManager
     github: GitHub
     verifier: Verifier
+    db_factory: DatabaseFactory
 
     def __init__(self):
         super().__init__(
@@ -143,11 +147,16 @@ class MILBot(commands.Bot):
         if not self.change_status.is_running():
             self.change_status.start()
         self.tasks.start()
+        engine = create_async_engine(DATABASE_ENGINE_URL)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        self.db_factory = DatabaseFactory(bot=self, engine=engine)
         await self.fetch_vars()
         await self.reports_cog.update_report_channel.run_immediately()
 
     async def close(self):
         await self.session.close()
+        await self.db_factory.close()
         await super().close()
 
     @ext_tasks.loop(hours=1)

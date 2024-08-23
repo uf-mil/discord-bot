@@ -38,6 +38,7 @@ GUILD_ID = int(ensure_string("GUILD_ID"))
 GITHUB_TOKEN = ensure_string("GITHUB_TOKEN")
 LEADERS_MEETING_NOTES_URL = ensure_string("MEETING_NOTES_URL")
 LEADERS_MEETING_URL = ensure_string("MEETING_URL")
+DATABASE_ENGINE_URL = ensure_string("DATABASE_ENGINE_URL")
 
 # Calendars
 GENERAL_CALENDAR = ensure_string("GENERAL_CALENDAR", True)
@@ -51,5 +52,8 @@ MECHANICAL_OH_CALENDAR = ensure_string("MECHANICAL_OH_CALENDAR", True)
 # Email
 EMAIL_USERNAME = ensure_string("EMAIL_USERNAME", True)
 EMAIL_PASSWORD = ensure_string("EMAIL_PASSWORD", True)
+
 WEBHOOK_SERVER_PORT = ensure_string("WEBHOOK_SERVER_PORT", True)
+GITHUB_OAUTH_CLIENT_ID = ensure_string("GITHUB_OAUTH_CLIENT_ID", True)
+GITHUB_OAUTH_CLIENT_SECRET = ensure_string("GITHUB_OAUTH_CLIENT_SECRET", True)
 IPC_PORT = ensure_string("IPC_PORT", True)

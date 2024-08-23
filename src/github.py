@@ -10,7 +10,7 @@ import aiohttp
 import discord
 from discord.ext import commands
 
-from .env import GITHUB_TOKEN
+from .env import GITHUB_OAUTH_CLIENT_ID, GITHUB_TOKEN
 from .github_types import (
     Branch,
     CheckRunsData,
@@ -65,6 +65,13 @@ class GitHubUsernameModal(MILBotModal):
                 )
             raise e
 
+        async with self.bot.db_factory() as db:
+            oauth_user = await db.get_github_oauth_member(interaction.user.id)
+            if not oauth_user:
+                return await interaction.response.send_message(
+                    f"You have not connected your GitHub account. Please connect your account first in {self.bot.member_services_channel.mention}!",
+                    ephemeral=True,
+                )
         try:
             # If the org is uf-mil, invite to the "Developers" team
             if self.org_name == "uf-mil":
@@ -73,20 +80,30 @@ class GitHubUsernameModal(MILBotModal):
                     user["id"],
                     self.org_name,
                     team["id"],
+                    oauth_user.access_token,
                 )
             else:
-                await self.bot.github.invite_user_to_org(user["id"], self.org_name)
+                await self.bot.github.invite_user_to_org(
+                    user["id"],
+                    self.org_name,
+                    user_access_token=oauth_user.access_token,
+                )
             await interaction.response.send_message(
                 f"Successfully invited {username} to {self.org_name}.",
                 ephemeral=True,
             )
         except aiohttp.ClientResponseError as e:
+            if e.status == 403:
+                await interaction.response.send_message(
+                    "Your GitHub account does not have the necessary permissions to invite users to the organization.",
+                    ephemeral=True,
+                )
             if e.status == 422:
                 await interaction.response.send_message(
                     "Validaton failed, the user might already be in the organization.",
                     ephemeral=True,
                 )
-                return
+            return
         except Exception:
             await interaction.response.send_message(
                 f"Failed to invite {username} to {self.org_name}.",
@@ -155,6 +172,7 @@ class GitHub:
         method: Literal["GET", "POST"] = "GET",
         extra_headers: dict[str, str] | None = None,
         data: dict[str, Any] | str | None = None,
+        user_access_token: str | None = None,
     ):
         """
         Fetches a URL with the given method and headers.
@@ -162,7 +180,7 @@ class GitHub:
         Raises ClientResponseError if the response status is not 2xx.
         """
         headers = {
-            "Authorization": f"Bearer {self.auth_token}",
+            "Authorization": f"Bearer {user_access_token or self.auth_token}",
         }
         if extra_headers:
             headers.update(extra_headers)
@@ -178,6 +196,41 @@ class GitHub:
                 )
             response.raise_for_status()
             return await response.json()
+
+    async def get_oauth_device_code(self) -> dict[str, Any]:
+        url = "https://github.com/login/device/code"
+        extra_headers = {
+            "Accept": "application/json",
+        }
+        data = {
+            "client_id": GITHUB_OAUTH_CLIENT_ID,
+            "scope": "repo admin:org user project",
+        }
+        response = await self.fetch(
+            url,
+            method="POST",
+            extra_headers=extra_headers,
+            data=data,
+        )
+        return response
+
+    async def get_oauth_access_token(self, device_code: str) -> dict[str, str]:
+        url = "https://github.com/login/oauth/access_token"
+        extra_headers = {
+            "Accept": "application/json",
+        }
+        data = {
+            "client_id": GITHUB_OAUTH_CLIENT_ID,
+            "device_code": device_code,
+            "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+        }
+        response = await self.fetch(
+            url,
+            method="POST",
+            extra_headers=extra_headers,
+            data=data,
+        )
+        return response
 
     async def get_repo(self, repo_name: str) -> Repository:
         url = f"https://api.github.com/repos/{repo_name}"
@@ -305,6 +358,7 @@ class GitHub:
         user_id: int,
         org_name: str,
         team_id: int | None = None,
+        user_access_token: str | None = None,
     ) -> Invitation:
         url = f"https://api.github.com/orgs/{org_name}/invitations"
         extra_headers = {
@@ -321,6 +375,7 @@ class GitHub:
             method="POST",
             extra_headers=extra_headers,
             data=str_data,
+            user_access_token=user_access_token,
         )
 
     async def get_team(self, org_name: str, team_name: str) -> OrganizationTeam:
