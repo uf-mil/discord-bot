@@ -242,7 +242,11 @@ class Webhooks(commands.Cog):
         gh = payload.github_data
         # Send a message to software-leadership in the form of:
         # [User A](link) accepted an invitation to join [organization_name](link)
-        name = f"[{await self.real_name(gh['member']['login'])}]({self.url(gh['member'], html=True)})"
+        name = (
+            f"[{await self.real_name(gh['membership']['user']['login'])}]({self.url(gh['membership']['user'], html=True)})"
+            if "user" in gh["membership"]
+            else gh["membership"]["email"]
+        )
         org = f"[{gh['organization']['login']}]({self.url(gh['organization'])})"
         updates_channel = self.leaders_channel(gh["organization"]["login"])
         await updates_channel.send(
