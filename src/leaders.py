@@ -73,7 +73,7 @@ class Leaders(commands.Cog):
         self.notes_reminder.start(self)
         self.pre_reminder.start(self)
         self.at_reminder.start(self)
-        self.robosub_reminder.start(self)
+        self.robotx_reminder.start(self)
         self.away_cooldown = {}
         self.protected_channel_names = [
             r"^.*leads$",
@@ -105,7 +105,6 @@ class Leaders(commands.Cog):
         start_date: datetime.date,
         event_submission: datetime.date,
         design_submission: datetime.date,
-        ship_date: datetime.date,
         competition_start: datetime.date,
         competition_end: datetime.date,
     ) -> str:
@@ -127,16 +126,14 @@ class Leaders(commands.Cog):
                 symbol = "X"
             elif current_date.strftime("%U") == today.strftime("%U"):
                 symbol = "x"
-            elif current_date < ship_date:
-                symbol = "."
             elif current_date < competition_start:
-                symbol = "s"
+                symbol = (
+                    "." if current_date.weekday() not in [6, 2] else "t"
+                )  # testing dates
             else:
                 symbol = "c"
 
             # Annotations
-            if current_date == ship_date:
-                annotations[week_format] = "← ship date"
             if current_date == event_submission:
                 annotations[week_format] = "← event submission"
             if current_date == design_submission:
@@ -175,24 +172,21 @@ class Leaders(commands.Cog):
         9,
         0,
     )
-    async def robosub_reminder(self):
-        SUMMER_START = datetime.date(2024, 5, 13)
-        EVENT_SUBMISSION = datetime.date(2024, 6, 17)
-        DESIGN_SUBMISSION = datetime.date(2024, 6, 24)
-        ROBOSUB_START = datetime.date(2024, 8, 5)
-        ROBOSUB_END = datetime.date(2024, 8, 11)
-        SHIPPING_START = ROBOSUB_START - datetime.timedelta(days=10)
+    async def robotx_reminder(self):
+        FALL_START = datetime.date(2024, 8, 18)
+        EVENT_SUBMISSION = datetime.date(2024, 9, 23)
+        DESIGN_SUBMISSION = datetime.date(2024, 9, 30)
+        ROBOTX_START = datetime.date(2024, 11, 3)
+        ROBOTX_END = datetime.date(2024, 11, 10)
+        LEAVE_DATE = ROBOTX_START - datetime.timedelta(days=3)
         today = datetime.date.today()
-        if today < SHIPPING_START:
-            days = (SHIPPING_START - today).days
-            estimated_testings = days // (7 / 3)  # assuming three testings per week
+        if today < LEAVE_DATE:
+            days = (LEAVE_DATE - today).days
+            start_days = (FALL_START - today).days
+            progress_ratio = (start_days - days) / start_days
+            estimated_testings = days // (7 / 2)  # assuming two testings per week
             await self.bot.leaders_channel.send(
-                f"Good morning! There are **{days} days** until sub is shipped! (estimated testings remaining: **{estimated_testings:.0f}**)\n{self._schedule_generator(SUMMER_START, EVENT_SUBMISSION, DESIGN_SUBMISSION, SHIPPING_START, ROBOSUB_START, ROBOSUB_END)}",
-            )
-        elif today < ROBOSUB_START:
-            days = (ROBOSUB_START - today).days
-            await self.bot.leaders_channel.send(
-                f"Good morning! There are **{days} days** until competition!",
+                f"Good morning! There are **{days} days** (progress from start: {progress_ratio:.2f}%) until we leave for competition! (estimated testings remaining: **{estimated_testings:.0f}**)\n{self._schedule_generator(FALL_START, EVENT_SUBMISSION, DESIGN_SUBMISSION, ROBOTX_START, ROBOTX_END)}",
             )
 
     @run_on_weekday(
