@@ -146,11 +146,15 @@ class Webhooks(commands.Cog):
         updates_channel = self.updates_channel(gh["repository"])
         if gh["ref"] == "refs/heads/master" or gh["ref"] == "refs/heads/main":
             if commit_count == 1:
-                by_statement = (
-                    f" by {name}"
-                    if gh["head_commit"]["author"]["username"] != gh["sender"]["login"]
-                    else ""
-                )
+                if gh["head_commit"]["author"]["username"] == gh["sender"]["login"]:
+                    by_statement = ""
+                else:
+                    author = (
+                        f"[{await self.real_name(gh['head_commit']['author']['username'])}](<https://github.com/{gh['head_commit']['author']['username']}>)"
+                        if "username" in gh["head_commit"]["author"]
+                        else gh["head_commit"]["author"]["name"]
+                    )
+                    by_statement = f" by {author}"
                 message = f"\"{self.natural_wrap(gh['head_commit']['message'])}\""
                 await updates_channel.send(
                     f"{name} {pushed} a commit{by_statement} to {branch} in {repo} ({compare}): {message}",
