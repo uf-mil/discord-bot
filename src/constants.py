@@ -8,6 +8,7 @@ SEMESTERS = [
     (datetime.date(2023, 8, 23), datetime.date(2023, 12, 6)),
     (datetime.date(2024, 1, 8), datetime.date(2024, 4, 28)),
     (datetime.date(2024, 5, 20), datetime.date(2024, 8, 4)),
+    (datetime.date(2024, 8, 22), datetime.date(2024, 12, 4)),
 ]
 SCHWARTZ_EMAIL = "ems@ufl.edu"
 
