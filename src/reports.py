@@ -9,7 +9,7 @@ import os
 import random
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import discord
 import gspread
@@ -535,6 +535,12 @@ class ReportsModal(discord.ui.Modal):
 
 
 class OauthSetupButton(discord.ui.Button):
+
+    _github_oauth_responses: ClassVar[
+        dict[discord.Member, tuple[dict, datetime.datetime]]
+    ] = {}
+    _task_id: ClassVar[int] = 0
+
     def __init__(self, bot: MILBot):
         self.bot = bot
         super().__init__(
@@ -612,7 +618,22 @@ class OauthSetupButton(discord.ui.Button):
                 )
                 return
 
-        device_code_response = await self.bot.github.get_oauth_device_code()
+        if (
+            interaction.user in self._github_oauth_responses
+            and datetime.datetime.now()
+            < self._github_oauth_responses[interaction.user][1]
+        ):
+            device_code_response = self._github_oauth_responses[interaction.user][0]
+            expires_in_dt = self._github_oauth_responses[interaction.user][1]
+        else:
+            device_code_response = await self.bot.github.get_oauth_device_code()
+            expires_in_dt = datetime.datetime.now() + datetime.timedelta(
+                seconds=device_code_response["expires_in"],
+            )
+            self._github_oauth_responses[interaction.user] = (
+                device_code_response,
+                expires_in_dt,
+            )
         code, device_code = (
             device_code_response["user_code"],
             device_code_response["device_code"],
@@ -623,17 +644,24 @@ class OauthSetupButton(discord.ui.Button):
         )
         view = MILBotView()
         view.add_item(button)
-        expires_in_dt = datetime.datetime.now() + datetime.timedelta(
-            seconds=device_code_response["expires_in"],
-        )
         await interaction.edit_original_response(
             content=f"Thanks! To authorize your GitHub account, please visit the link below using the button and enter the following code:\n`{code}`\n\n* Please note that it may take a few seconds after authorizing in your browser to appear in Discord, due to GitHub limitations.\n* This authorization attempt will expire {discord.utils.format_dt(expires_in_dt, 'R')}.",
             view=view,
             attachments=[],
         )
         access_token = None
+        resp = {}
+        OauthSetupButton._task_id += 1
+        id = self._task_id
         while not access_token and datetime.datetime.now() < expires_in_dt:
-            await asyncio.sleep(device_code_response["interval"])
+            await asyncio.sleep(
+                resp["interval"]
+                if "interval" in resp
+                else device_code_response["interval"],
+            )
+            # Only use the latest response, otherwise we are going to get continuous slow_down responses
+            if id != self._task_id:
+                return
             resp = await self.bot.github.get_oauth_access_token(device_code)
             if "access_token" in resp:
                 access_token = resp["access_token"]
