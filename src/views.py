@@ -51,3 +51,95 @@ class MILBotView(discord.ui.View):
         item: discord.ui.Item,
     ) -> None:
         await self.handler.handle_interaction_exception(interaction, error)
+
+
+class YesNo(MILBotView):
+
+    message: discord.Message | None
+    interaction: discord.Interaction | None
+
+    def __init__(
+        self,
+        author: discord.Member | discord.User,
+        *,
+        additional_components: list[discord.ui.Item] | None = None,
+        defer_interaction: bool = True,
+    ):
+        super().__init__()
+        self.value = None
+        self.author = author
+        self.message = None
+        self.interaction = None
+        self.defer_interaction = defer_interaction
+        if additional_components:
+            for item in additional_components:
+                self.add_item(item)
+
+    @discord.ui.button(
+        label="Yes",
+        style=discord.ButtonStyle.green,
+    )
+    async def confirm(
+        self,
+        interaction: discord.Interaction,
+        _: discord.ui.Button,
+    ):
+        self.interaction = interaction
+        if interaction.user == self.author:
+            self.value = True
+            self.interaction = interaction
+            if self.defer_interaction:
+                await interaction.response.defer()
+
+            # Update buttons
+            if self.message:
+                self.clear_items()
+                self.add_item(
+                    discord.ui.Button(
+                        label="Confirmed",
+                        style=discord.ButtonStyle.danger,
+                        disabled=True,
+                    ),
+                )
+                await self.message.edit(view=self)
+
+            self.stop()
+        else:
+            await interaction.response.send_message(
+                "Sorry, you are not the original staff member who called this method.",
+                ephemeral=True,
+            )
+
+    @discord.ui.button(label="No", style=discord.ButtonStyle.red)
+    async def cancel(self, interaction: discord.Interaction, _: discord.ui.Button):
+        self.interaction = interaction
+        if interaction.user == self.author:
+            self.value = False
+            if self.defer_interaction:
+                await interaction.response.defer()
+
+            # Update buttons
+            if self.message:
+                self.clear_items()
+                self.add_item(
+                    discord.ui.Button(
+                        label="Cancelled",
+                        style=discord.ButtonStyle.secondary,
+                        disabled=True,
+                    ),
+                )
+                await self.message.edit(view=self)
+
+            self.stop()
+        else:
+            await interaction.response.send_message(
+                "Sorry, you are not the original staff member who called this method.",
+                ephemeral=True,
+            )
+
+    async def on_timeout(self) -> None:
+        if self.message:
+            for children in self.children:
+                if isinstance(children, discord.ui.Button):
+                    children.disabled = True
+            await self.message.edit(view=self)

@@ -5,6 +5,7 @@ import calendar
 import datetime
 import itertools
 import logging
+import os
 import random
 from dataclasses import dataclass
 from enum import IntEnum
@@ -19,7 +20,7 @@ from .constants import SCHWARTZ_EMAIL, Team, semester_given_date
 from .email import Email
 from .tasks import run_on_weekday
 from .utils import is_active, ordinal
-from .views import MILBotView
+from .views import MILBotView, YesNo
 
 if TYPE_CHECKING:
     from .bot import MILBot
@@ -554,6 +555,63 @@ class OauthSetupButton(discord.ui.Button):
             )
             return
 
+        needs_new_headshot = True
+        headshot_exists = os.path.exists(f"headshots/{interaction.user.id}.png")
+        if headshot_exists:
+            view = YesNo(interaction.user)
+            await interaction.response.send_message(
+                "Let's reconnect your GitHub account! Would you still like to use this profile picture?",
+                view=view,
+                file=discord.File(f"headshots/{interaction.user.id}.png"),
+                ephemeral=True,
+            )
+            await view.wait()
+            needs_new_headshot = not view.value
+        if needs_new_headshot:
+            if not interaction.user.dm_channel:
+                await interaction.user.create_dm()
+            text = (
+                "Let's get your GitHub connected! First, please **message me** a headshot of your face. This will be associated your account for when team leaders review your work for the previous week. For best results, please use a **square** (or roughly square) photo."
+                + (
+                    f" [You can click here to message me!]({interaction.user.dm_channel.jump_url})"
+                    if interaction.user.dm_channel
+                    else ""
+                )
+            )
+            if headshot_exists:
+                await interaction.edit_original_response(
+                    content=text,
+                    attachments=[],
+                    view=None,
+                )
+            else:
+                await interaction.response.send_message(text, ephemeral=True)
+            try:
+                while True:
+                    message = await self.bot.wait_for(
+                        "message",
+                        check=lambda m: m.author == interaction.user and m.attachments,
+                        timeout=300,
+                    )
+                    assert isinstance(message, discord.Message)
+                    if message.attachments[0].content_type and not message.attachments[
+                        0
+                    ].content_type.startswith("image"):
+                        await message.reply("❌ Please send me an image file.")
+                        continue
+                    with open(f"headshots/{interaction.user.id}.png", "wb") as f:
+                        await message.attachments[0].save(f)
+                    await message.reply(
+                        f"Thank you! Please return to the original message to continue connecting your GitHub account ([you can click here to get there faster!]({(await interaction.original_response()).jump_url})).",
+                    )
+                    break
+            except asyncio.TimeoutError:
+                await interaction.edit_original_response(
+                    content="❌ You took too long to send me your headshot. Please try again.",
+                    view=None,
+                )
+                return
+
         device_code_response = await self.bot.github.get_oauth_device_code()
         code, device_code = (
             device_code_response["user_code"],
@@ -568,10 +626,10 @@ class OauthSetupButton(discord.ui.Button):
         expires_in_dt = datetime.datetime.now() + datetime.timedelta(
             seconds=device_code_response["expires_in"],
         )
-        await interaction.response.send_message(
-            f"To authorize your GitHub account, please visit the link below using the button and enter the following code:\n`{code}`\n\n* Please note that it may take a few seconds after authorizing in your browser to appear in Discord, due to GitHub limitations.\n* This authorization attempt will expire {discord.utils.format_dt(expires_in_dt, 'R')}.",
+        await interaction.edit_original_response(
+            content=f"Thanks! To authorize your GitHub account, please visit the link below using the button and enter the following code:\n`{code}`\n\n* Please note that it may take a few seconds after authorizing in your browser to appear in Discord, due to GitHub limitations.\n* This authorization attempt will expire {discord.utils.format_dt(expires_in_dt, 'R')}.",
             view=view,
-            ephemeral=True,
+            attachments=[],
         )
         access_token = None
         while not access_token and datetime.datetime.now() < expires_in_dt:

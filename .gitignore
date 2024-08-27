@@ -1,3 +1,7 @@
+# Caches/bot stuff
+headshots/
+bot.db
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import logging.handlers
+import os
 import random
 import traceback
 from io import BytesIO
@@ -470,6 +471,13 @@ class MILBot(commands.Bot):
         if not ch:
             raise ResourceNotFound("Channel not found.")
         return ch
+
+    def get_headshot(self, member: discord.Member) -> discord.File | None:
+        if os.path.exists(f"headshots/{member.id}.png"):
+            return discord.File(
+                f"headshots/{member.id}.png",
+                filename=f"{member.id}.png",
+            )
 
     async def reading_gif(self) -> discord.File:
         gifs = [
