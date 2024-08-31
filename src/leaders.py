@@ -166,6 +166,32 @@ class Leaders(commands.Cog):
                 f"{team_names[file]} team: {added_successfully[file]} members added successfully. Could not find: {', '.join(could_not_find[file])}",
             )
 
+    @commands.command(aliases=["yellowpages", "yp"])
+    @commands.has_any_role("Leaders")
+    async def lookup(self, ctx: commands.Context, name: str):
+        """
+        Finds all users who could be related to by the name
+        """
+        members: list[discord.Member] = []
+        for member in self.bot.active_guild.members:
+            if name.lower() in member.display_name.lower():
+                members.append(member)
+        if not members:
+            await ctx.reply("No members found.")
+            return
+        members = sorted(members, key=lambda x: x.display_name)
+        formatted_members = []
+        for member in members:
+            useful_roles = set(member.roles) - {self.bot.active_guild.default_role}
+            roles = ", ".join(role.name for role in useful_roles)
+            formatted_members.append(
+                f"* {member.display_name} ({member.mention}) - Roles: {roles}",
+            )
+        new_line_formatted = "\n".join(formatted_members)
+        await ctx.reply(
+            f"Found members: \n{new_line_formatted}",
+        )
+
     def _schedule_generator(
         self,
         start_date: datetime.date,
