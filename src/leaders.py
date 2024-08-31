@@ -99,6 +99,73 @@ class Leaders(commands.Cog):
                 return
         await ctx.send(f"❌ Task `{func_name}` not found.")
 
+    @commands.command()
+    @commands.has_any_role("Leaders")
+    async def assign_egn4912(
+        self,
+        ctx: commands.Context,
+        files: commands.Greedy[discord.Attachment],
+    ):
+        """
+        Assigns EGN4912 roles to all members.
+        """
+        software_file = discord.utils.get(files, filename="software.txt")
+        electrical_file = discord.utils.get(files, filename="electrical.txt")
+        mechanical_file = discord.utils.get(files, filename="mechanical.txt")
+        if not software_file and not electrical_file and not mechanical_file:
+            await ctx.reply(
+                "Please attach at least one of the following files: `software.txt`, `electrical.txt`, `mechanical.txt`.",
+            )
+            return
+        else:
+            await ctx.reply(
+                f"{self.bot.loading_emoji} Assigning EGN4912 roles to all members. This may take a while...",
+            )
+
+        team_names = {
+            software_file: "Software",
+            electrical_file: "Electrical",
+            mechanical_file: "Mechanical",
+        }
+        added_successfully = {
+            software_file: 0,
+            electrical_file: 0,
+            mechanical_file: 0,
+        }
+        could_not_find = {
+            software_file: [],
+            electrical_file: [],
+            mechanical_file: [],
+        }
+        for file in [software_file, electrical_file, mechanical_file]:
+            if not file:
+                continue
+            for name in (await file.read()).decode().split("\n"):
+                name = name.strip()
+                if not name:
+                    continue
+                was_added = False
+                for member in self.bot.active_guild.members:
+                    if member.display_name.lower() == name.lower():
+                        team_role = discord.utils.get(
+                            self.bot.active_guild.roles,
+                            name=f"EGN4912 {team_names[file]}",
+                        )
+                        if not team_role:
+                            await ctx.reply(
+                                f"Could not find the role for {team_names[file]} team. Please create the role and try again.",
+                            )
+                            return
+                        roles_to_add = {team_role, self.bot.egn4912_role}
+                        await member.add_roles(*(roles_to_add - set(member.roles)))
+                        added_successfully[file] += 1
+                        was_added = True
+                if not was_added:
+                    could_not_find[file].append(name)
+            await ctx.reply(
+                f"{team_names[file]} team: {added_successfully[file]} members added successfully. Could not find: {', '.join(could_not_find[file])}",
+            )
+
     def _schedule_generator(
         self,
         start_date: datetime.date,
