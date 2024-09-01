@@ -137,14 +137,19 @@ class Webhooks(commands.Cog):
         pushed = (
             f"[{'force-' if gh['forced'] else ''}pushed]({self.url(gh['head_commit'])})"
         )
-        branch = (
-            f"[{gh['ref'].split('/')[-1]}]({self.url(gh['repository'], html=True)})"
-        )
+        branch_url = f"https://github.com/{gh['repository']['full_name']}/tree/{gh['ref'].split('/')[-1]}"
+        branch = f"[{gh['ref'].split('/')[-1]}](<{branch_url}>)"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         compare = f"[diff]({gh['compare']})"
         commit_count = len(gh["commits"])
         updates_channel = self.updates_channel(gh["repository"])
-        if gh["ref"] == "refs/heads/master" or gh["ref"] == "refs/heads/main":
+        # Every commit in an electrical repository should be sent out
+        is_electrical = gh["repository"]["full_name"].startswith("uf-mil-electrical")
+        if (
+            gh["ref"] == "refs/heads/master"
+            or gh["ref"] == "refs/heads/main"
+            or is_electrical
+        ):
             if commit_count == 1:
                 if gh["head_commit"]["author"]["username"] == gh["sender"]["login"]:
                     by_statement = ""
