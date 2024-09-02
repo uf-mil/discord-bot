@@ -153,7 +153,6 @@ class MILBot(commands.Bot):
             await conn.run_sync(Base.metadata.create_all)
         self.db_factory = DatabaseFactory(bot=self, engine=engine)
         await self.fetch_vars()
-        await self.reports_cog.update_report_channel.run_immediately()
 
     async def close(self):
         await self.session.close()

@@ -368,10 +368,13 @@ class StartReviewView(MILBotView):
         else:
             for student in students:
                 view = ReportsReviewView(self.bot, student)
+                report_quoted = (
+                    student.report.replace("\n", "\n> ") if student.report else ""
+                )
                 await interaction.edit_original_response(
-                    content=f"Please grade the report by **{student.name}**:\n> _{student.report}_"
+                    content=f"Please grade the report by **{student.name}**:\n> {report_quoted[:1900]}"
                     if student.report
-                    else f"❌ **{student.name}** did not submit a report.",
+                    else f"❌ **{student.name}** did not complete any activity last week.",
                     view=view,
                 )
                 await view.wait()
@@ -863,11 +866,9 @@ class ReportsCog(commands.Cog):
         """
 
     def _format_issue_comment_str(self, payload: dict) -> str:
-        logger.info(payload["repository"])
         return f"* {payload['repository']['nameWithOwner']}#{payload['issue']['number']} (\"{payload['issue']['title']}\"): \"{payload['bodyText']}\""
 
     def _format_issue_str(self, payload: dict) -> str:
-        logger.info(payload["repository"])
         return f"* {payload['repository']['nameWithOwner']}#{payload['number']} (\"{payload['title']}\")"
 
     def _format_commit_str(self, payload: dict) -> str:
@@ -875,7 +876,6 @@ class ReportsCog(commands.Cog):
             datetime.datetime.fromisoformat(payload["commit"]["author"]["date"]),
             "F",
         )
-        logger.info(payload["repository"])
         return f"* {format_dt} {payload['repository']['full_name']} @ {payload['sha'][:8]} ({payload['commit']['message']})"
 
     async def refresh_sheet(self) -> None:
@@ -1052,41 +1052,8 @@ class ReportsCog(commands.Cog):
         """
         Gives leaders a list of who submitted reports and who did not.
         """
-        await self.bot.sh.get_worksheet(0)
-
-        # Calculate the week number and get the column
-        column = WeekColumn.last_week()
-
-        # Get all members who have not completed reports for the week
-        students = await self.students_status(column.report_column)
-
-        # Generate embed
-        first_day_of_week = column.date_range[0]
-        last_day_of_week = column.date_range[1]
-        first = first_day_of_week.strftime("%B %-d, %Y")
-        last = last_day_of_week.strftime("%B %-d, %Y")
         for team in Team:
-            team_members = [s for s in students if s.team == team]
-            if not team_members:
-                continue
             team_leads_ch = self.bot.team_leads_ch(team)
-            while team_members:
-                embed = discord.Embed(
-                    title=f"Report Summary: `{first}` - `{last}`",
-                    color=discord.Color.gold(),
-                    description=f"Hola, {team}! Here's a summary of last week's reports. Please review progress of members from last week, including those who did not submit reports. Thank you!",
-                )
-
-                for next_member in team_members[:25]:
-                    embed.add_field(
-                        name=f"{next_member.status_emoji} `{next_member.name.title()}`",
-                        value=f"{next_member.report[:1024] if next_member.report else 'missing :('}",
-                    )
-                    if len(embed) > 6000:
-                        embed.remove_field(-1)
-                        break
-                    team_members.remove(next_member)
-                await team_leads_ch.send(embed=embed)
             grading_deadline = discord.utils.utcnow() + datetime.timedelta(days=3)
             review_embed = discord.Embed(
                 title="Begin Report Review",
