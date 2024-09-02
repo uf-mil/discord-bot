@@ -41,6 +41,10 @@ class Column(IntEnum):
     SCORE_COLUMN = 8
 
 
+# Effectively: [calendar.MONDAY, calendar.TUESDAY, ..., calendar.SUNDAY]
+EVERYDAY = list(range(7))
+
+
 @dataclass
 class WeekColumn:
     """
@@ -931,7 +935,7 @@ class ReportsCog(commands.Cog):
                     ],
                 )
 
-    @run_on_weekday(day=[*calendar.Day], hour=6, minute=0)
+    @run_on_weekday(day=EVERYDAY, hour=6, minute=0)
     async def regular_refresh(self) -> None:
         await self.refresh_sheet()
 
