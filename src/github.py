@@ -4,6 +4,7 @@ import datetime
 import json
 import logging
 import re
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
 import aiohttp
@@ -158,6 +159,14 @@ class GitHubInviteView(MILBotView):
         await interaction.response.send_modal(
             GitHubUsernameModal(self.bot, "uf-mil-mechanical"),
         )
+
+
+@dataclass
+class UserContributions:
+    issue_comments: list[dict[str, Any]]
+    pull_requests: list[dict[str, Any]]
+    issues: list[dict[str, Any]]
+    commits: list[dict[str, Any]]
 
 
 class GitHub:
@@ -471,6 +480,145 @@ class GitHub:
             projects.append(project)
         projects.sort(key=lambda p: p.title)
         return projects
+
+    async def get_user_contributions(self, user_token: str) -> UserContributions:
+        previous_monday_midnight = (
+            datetime.datetime.now().astimezone()
+            - datetime.timedelta(
+                days=datetime.datetime.now().weekday(),
+            )
+        )
+        previous_monday_midnight = previous_monday_midnight.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        previous_monday_format = previous_monday_midnight.isoformat()
+        query = f"""query {{
+          rateLimit {{
+            remaining
+            limit
+            used
+            cost
+          }}
+          viewer {{
+            login
+            issueComments(first: 100, orderBy: {{field: UPDATED_AT, direction: DESC}}) {{
+              nodes {{
+                bodyText
+                createdAt
+                issue {{
+                  title
+                  number
+                }}
+                repository {{
+                  nameWithOwner
+                  name
+                  owner {{
+                    login
+                  }}
+                }}
+              }}
+            }}
+            pullRequests(last: 100) {{
+              nodes {{
+                title
+                number
+                createdAt
+                author {{
+                  login
+                }}
+                repository {{
+                    nameWithOwner
+                    name
+                    owner {{
+                        login
+                    }}
+                }}
+              }}
+            }}
+            issues(first: 100, filterBy: {{since: "{previous_monday_format}"}}) {{
+              nodes {{
+                title
+                createdAt
+                number
+                author {{
+                  login
+                }}
+                repository {{
+                  nameWithOwner
+                  name
+                  owner {{
+                    login
+                  }}
+                }}
+              }}
+            }}
+          }}
+        }}
+        """
+        properties = await self.fetch(
+            "https://api.github.com/graphql",
+            method="POST",
+            data=json.dumps({"query": query}),
+            user_access_token=user_token,
+        )
+        username = properties["data"]["viewer"]["login"]
+        filtered_issue_comments = [
+            comment
+            for comment in properties["data"]["viewer"]["issueComments"]["nodes"]
+            if datetime.datetime.fromisoformat(comment["createdAt"])
+            > previous_monday_midnight
+            and comment["repository"]["owner"]["login"].startswith("uf-mil")
+        ]
+        filtered_issue_comments.sort(
+            key=lambda comment: datetime.datetime.fromisoformat(comment["createdAt"]),
+            reverse=True,
+        )
+        filtered_pull_requests = [
+            pr
+            for pr in properties["data"]["viewer"]["pullRequests"]["nodes"]
+            if pr["author"]["login"] == username
+            and pr["repository"]["owner"]["login"].startswith("uf-mil")
+            and datetime.datetime.fromisoformat(pr["createdAt"])
+            > previous_monday_midnight
+        ]
+        filtered_pull_requests.sort(
+            key=lambda pr: datetime.datetime.fromisoformat(pr["createdAt"]),
+            reverse=True,
+        )
+        filtered_issues = [
+            issue
+            for issue in properties["data"]["viewer"]["issues"]["nodes"]
+            if issue["author"]["login"] == username
+            and issue["repository"]["owner"]["login"].startswith("uf-mil")
+            and datetime.datetime.fromisoformat(issue["createdAt"])
+            > previous_monday_midnight
+        ]
+
+        commits_call = (
+            "https://api.github.com"
+            + "/search/commits?q=author:"
+            + username
+            + "+org:uf-mil+org:uf-mil-electrical+org:uf-mil-mechanical+committer-date:>="
+            + previous_monday_format
+        )
+        commits = await self.fetch(commits_call)
+        commits = commits["items"]
+        commits.sort(
+            key=lambda commit: datetime.datetime.fromisoformat(
+                commit["commit"]["author"]["date"],
+            ),
+            reverse=True,
+        )
+        # For commits to count, they must be in the main branch of the repository
+        return UserContributions(
+            issue_comments=filtered_issue_comments,
+            pull_requests=filtered_pull_requests,
+            issues=filtered_issues,
+            commits=commits,
+        )
 
 
 class GitHubCog(commands.Cog):

@@ -826,12 +826,13 @@ class ReportsCog(commands.Cog):
         self.first_individual_reminder.start(self)
         self.second_individual_reminder.start(self)
         self.update_report_channel.start(self)
+        self.regular_refresh.start(self)
 
     @run_on_weekday(calendar.FRIDAY, 12, 0, check=is_active)
     async def post_reminder(self):
         general_channel = self.bot.general_channel
         return await general_channel.send(
-            f"{self.bot.egn4912_role.mention}\nHey everyone! Friendly reminder to submit your weekly progress reports by **Sunday night at 11:59pm**. You can submit your reports in the {self.bot.member_services_channel.mention} channel. If you have any questions, please contact your leader. Thank you!",
+            f"{self.bot.egn4912_role.mention}\nHey everyone! Friendly reminder to make at least one GitHub contribution or status update by **Sunday night at 11:59pm**. If you have any questions, please contact your team leader. Thank you!",
         )
 
     async def safe_col_values(
@@ -844,7 +845,97 @@ class ReportsCog(commands.Cog):
             raise RuntimeError("Column is missing!")
         return [n or "" for n in names]
 
+    async def fetch_contributions(self, token: str):
+        """
+        This is the heart of getting contributions for all of our members. We
+        want to look through the activity that each member has done.
+
+        Contributions include:
+        - Issues (opening/closing/commenting)
+        - Pull requests (opening/closing/commenting)
+        - Commits (pushing code)
+        - Reviews (commenting on PRs)
+        """
+
+    def _format_issue_comment_str(self, payload: dict) -> str:
+        logger.info(payload["repository"])
+        return f"* {payload['repository']['nameWithOwner']}#{payload['issue']['number']} (\"{payload['issue']['title']}\"): \"{payload['bodyText']}\""
+
+    def _format_issue_str(self, payload: dict) -> str:
+        logger.info(payload["repository"])
+        return f"* {payload['repository']['nameWithOwner']}#{payload['number']} (\"{payload['title']}\")"
+
+    def _format_commit_str(self, payload: dict) -> str:
+        format_dt = discord.utils.format_dt(
+            datetime.datetime.fromisoformat(payload["commit"]["author"]["date"]),
+            "F",
+        )
+        logger.info(payload["repository"])
+        return f"* {format_dt} {payload['repository']['full_name']} @ {payload['sha'][:8]} ({payload['commit']['message']})"
+
+    async def refresh_sheet(self) -> None:
+        main_worksheet = await self.bot.sh.get_worksheet(0)
+        cur_semester = semester_given_date(datetime.datetime.now())
+        cur_semester[0] if cur_semester else datetime.date.today()
+        week = WeekColumn.current()
+        async with self.bot.db_factory() as db:
+            for member in await db.authenticated_members():
+                token = str(member.access_token)
+                contributions = await self.bot.github.get_user_contributions(token)
+                summaries = {}
+                if contributions.issue_comments:
+                    summaries["Comments"] = [
+                        self._format_issue_comment_str(payload)
+                        for payload in contributions.issue_comments
+                    ]
+                if contributions.issues:
+                    summaries["Issues Opened"] = [
+                        self._format_issue_str(payload)
+                        for payload in contributions.issues
+                    ]
+                if contributions.pull_requests:
+                    summaries["Pull Requests Opened"] = [
+                        self._format_issue_str(payload)
+                        for payload in contributions.pull_requests
+                    ]
+                if contributions.commits:
+                    summaries["Commits"] = [
+                        self._format_commit_str(payload)
+                        for payload in contributions.commits
+                    ]
+                summary_str = "\n\n".join(
+                    f"**{k}**:\n" + "\n".join(v) for k, v in summaries.items()
+                )
+                discord_member = self.bot.active_guild.get_member(
+                    int(member.discord_id),
+                )
+                if not discord_member:
+                    try:
+                        discord_member = await self.bot.active_guild.fetch_member(
+                            int(member.discord_id),
+                        )
+                    except discord.NotFound:
+                        logger.info(
+                            f"Could not find member with ID {member.discord_id}.",
+                        )
+                        continue
+                id_cell = await main_worksheet.find(discord_member.name)
+                a1_notation = gspread.utils.rowcol_to_a1(id_cell.row, week.report_column)  # type: ignore
+                await main_worksheet.update(
+                    a1_notation,
+                    [
+                        [
+                            summary_str,
+                        ],
+                    ],
+                )
+
+    @run_on_weekday(day=[*calendar.Day], hour=6, minute=0)
+    async def regular_refresh(self) -> None:
+        await self.refresh_sheet()
+
     async def students_status(self, column: int) -> list[Student]:
+        await self.refresh_sheet()
         main_worksheet = await self.bot.sh.get_worksheet(0)
         names = await self.safe_col_values(main_worksheet, Column.NAME_COLUMN)
         discord_ids = await self.safe_col_values(
@@ -903,6 +994,7 @@ class ReportsCog(commands.Cog):
 
     async def members_without_report(self) -> list[Student]:
         week = WeekColumn.current()
+        await self.refresh_sheet()
         students = await self.students_status(week.report_column)
         return [student for student in students if not student.report]
 
@@ -918,7 +1010,7 @@ class ReportsCog(commands.Cog):
             if student.member:
                 try:
                     await student.member.send(
-                        f"Hey **{student.first_name}**! It's your friendly uf-mil-bot here. I noticed you haven't submitted your weekly MIL report yet. Please submit it in the {self.bot.member_services_channel.mention} channel by {discord.utils.format_dt(deadline_tonight, 't')} tonight. Thank you!",
+                        f"Hey **{student.first_name}**! It's your friendly uf-mil-bot here. I noticed you haven't provided a contribution or status update through GitHub this week. Please create it by {discord.utils.format_dt(deadline_tonight, 't')} tonight. Thank you!",
                     )
                     logger.info(
                         f"Sent first individual report reminder to {student.member}.",
@@ -940,7 +1032,7 @@ class ReportsCog(commands.Cog):
             if student.member:
                 try:
                     await student.member.send(
-                        f"Hey **{student.first_name}**! It's your friendly uf-mil-bot here again. I noticed you haven't submitted your report yet. There are only **four hours** remaining to submit your report! Please submit it in the {self.bot.member_services_channel.mention} channel by {discord.utils.format_dt(deadline_tonight, 't')} tonight. Thank you!",
+                        f"Hey **{student.first_name}**! It's your friendly uf-mil-bot here again. I noticed you haven't created your contribution or status update for this week yet. There are only **four hours** remaining to create your contribution! Please submit it through GitHub by {discord.utils.format_dt(deadline_tonight, 't')} tonight. Thank you!",
                     )
                     logger.info(
                         f"Sent second individual report reminder to {student.member}.",

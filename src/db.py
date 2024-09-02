@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -31,7 +32,7 @@ class GitHubOauthMember(Base):
 
     discord_id = mapped_column(BigInteger, primary_key=True)
     device_code = mapped_column(String, nullable=False)
-    access_token = mapped_column(String, nullable=True)
+    access_token = mapped_column(String, nullable=False)
 
 
 class Database(AsyncSession):
@@ -59,6 +60,10 @@ class Database(AsyncSession):
         )
         await self.merge(member)
         await self.commit()
+
+    async def authenticated_members(self) -> Sequence[GitHubOauthMember]:
+        result = await self.execute(select(GitHubOauthMember))
+        return result.scalars().all()
 
     async def get_github_oauth_member(
         self,

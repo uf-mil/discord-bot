@@ -27,7 +27,7 @@ repos:
     hooks:
       - id: codespell
         args:
-          - --ignore-words-list=nd,som,pullrequest
+          - --ignore-words-list=nd,som,pullrequest,pullrequests
           - --quiet-level=2
         exclude_types: [csv, json]
   - repo: https://github.com/hadolint/hadolint
