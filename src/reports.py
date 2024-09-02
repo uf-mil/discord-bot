@@ -547,6 +547,7 @@ class OauthSetupButton(discord.ui.Button):
             label="Connect/Re-connect your GitHub account",
             style=discord.ButtonStyle.green,
             custom_id="reports_view:oauth_connect",
+            emoji=discord.PartialEmoji(name="github", id=1279957990882939010),
         )
 
     async def callback(self, interaction: discord.Interaction):
@@ -1115,28 +1116,28 @@ class ReportsCog(commands.Cog):
     @commands.command()
     async def reportview(self, ctx):
         embed = discord.Embed(
-            title="Submit your Weekly Progress Report",
-            description="In order to keep all members on track, we ask that you complete a weekly report detailing your trials/contributions for the previous week. This is required for all members on all teams.",
+            title="Setup Automatic Progress Reports",
+            description="In order to keep all members on track, we review the progress of each member each week. This process is automated using GitHub. All members are required to connect their GitHub account below to participate in our laboratory.",
             color=discord.Color.blue(),
         )
         embed.add_field(
-            name="📝 __How to Submit__",
-            value="To submit your report, click the button below. In your report, aim for:\n1. **1-2 sentences** describing your progress this week.\n2. **Specific details** about what you worked on. Make sure to mention any specific tasks, projects, or people you worked with.",
+            name="📍 __What is a Contribution?__",
+            value="Contributions include any activity on your team's task tracker. This includes:\n* Opening issues\n* Writing comments on issues\n* Creating pull requests\n* Creating commits on the default branch\nIf you have more questions about how your activity will be assessed, don't hesitate to ask your team lead.",
             inline=False,
         )
         embed.add_field(
             name="📅 __Deadline__",
-            value="Reports are due by **Sunday night at 11:59pm**. We cannot accept late reports.",
+            value="Reports are collected at **Sunday night at 11:59pm**. We cannot accept late contributions.",
             inline=False,
         )
         embed.add_field(
             name="📊 __Grading__",
-            value="Reports are graded on a scale of **green-yellow-red** (green indicating the best performance).\n* ✅ **Green**: Report demonstrated an actionable attempt at 3 hours of work.\n* ⚠️ **Yellow**: Report demonstrated 0-1 hours of work. (ie, installing a basic software package or reading a tutorial)\n* ❌ **Red**: Report was missing or no work was demonstrated.\nThese details are tracked over a semester using the **missing index**. A yellow report adds +0.5; a red report adds +1. Upon reaching 4, you will be automatically removed from MIL.",
+            value="Reports are graded on a scale of **green-yellow-red** (green indicating the best performance).\n* ✅ **Green**: Report demonstrated an actionable attempt of at least 3 or 5 hours of work.\n* ⚠️ **Yellow**: Report demonstrated 0-1 hours of work. (ie, installing a basic software package or reading a tutorial)\n* ❌ **Red**: Report was missing or no work was demonstrated.\nThese details are tracked over a semester using the **missing index**. A yellow report adds +0.5; a red report adds +1. Upon reaching 4, you will be automatically removed from MIL.",
             inline=False,
         )
         embed.add_field(
             name="🔍 __Review__",
-            value="After submitting your report, a leader will review your report. If you were graded yellow or red, you will be notified via email.",
+            value="A leader will review your report before the following Thursday to provide feedback on your work. If you were graded yellow or red, you will be notified via email.",
             inline=False,
         )
         embed.add_field(
