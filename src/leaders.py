@@ -274,11 +274,11 @@ class Leaders(commands.Cog):
         today = datetime.date.today()
         if today < LEAVE_DATE:
             days = (LEAVE_DATE - today).days
-            start_days = (FALL_START - today).days
-            progress_ratio = (start_days - days) / start_days
+            total_days = (LEAVE_DATE - FALL_START).days
+            progress_ratio = (total_days - days) / total_days
             estimated_testings = days // (7 / 2)  # assuming two testings per week
             await self.bot.leaders_channel.send(
-                f"Good morning! There are **{days} days** (progress from start: {progress_ratio:.2f}%) until we leave for competition! (estimated testings remaining: **{estimated_testings:.0f}**)\n{self._schedule_generator(FALL_START, EVENT_SUBMISSION, DESIGN_SUBMISSION, ROBOTX_START, ROBOTX_END)}",
+                f"Good morning! There are **{days} days** (progress from start: {progress_ratio:.2%}) until we leave for competition! (estimated testings remaining: **{estimated_testings:.0f}**)\n{self._schedule_generator(FALL_START, EVENT_SUBMISSION, DESIGN_SUBMISSION, ROBOTX_START, ROBOTX_END)}",
             )
 
     @run_on_weekday(
