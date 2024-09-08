@@ -372,9 +372,11 @@ class StartReviewView(MILBotView):
                     student.report.replace("\n", "\n> ") if student.report else ""
                 )
                 await interaction.edit_original_response(
-                    content=f"Please grade the report by **{student.name}**:\n> {report_quoted[:1900]}"
-                    if student.report
-                    else f"❌ **{student.name}** did not complete any activity last week.",
+                    content=(
+                        f"Please grade the report by **{student.name}**:\n> {report_quoted[:1900]}"
+                        if student.report
+                        else f"❌ **{student.name}** did not complete any activity last week."
+                    ),
                     view=view,
                 )
                 await view.wait()
@@ -663,9 +665,11 @@ class OauthSetupButton(discord.ui.Button):
         id = self._task_id
         while not access_token and datetime.datetime.now() < expires_in_dt:
             await asyncio.sleep(
-                resp["interval"]
-                if "interval" in resp
-                else device_code_response["interval"],
+                (
+                    resp["interval"]
+                    if "interval" in resp
+                    else device_code_response["interval"]
+                ),
             )
             # Only use the latest response, otherwise we are going to get continuous slow_down responses
             if id != self._task_id:
@@ -926,6 +930,11 @@ class ReportsCog(commands.Cog):
                         continue
                 id_cell = await main_worksheet.find(discord_member.name)
                 a1_notation = gspread.utils.rowcol_to_a1(id_cell.row, week.report_column)  # type: ignore
+                summary_str = summary_str.strip()
+                # Just in case, google sheets cells are limited to 50,000 characters
+                summary_str = summary_str[:50000]
+                if not summary_str:
+                    continue
                 await main_worksheet.update(
                     a1_notation,
                     [
@@ -1011,8 +1020,20 @@ class ReportsCog(commands.Cog):
             datetime.date.today(),
             datetime.time(23, 59, 59),
         )
+        async with self.bot.db_factory() as db:
+            authenticated_discord_users = {
+                user.discord_id for user in await db.authenticated_members()
+            }
         for student in students:
             if student.member:
+                if student.member.id not in authenticated_discord_users:
+                    await student.member.send(
+                        f"Hey **{student.first_name}**! It's your friendly uf-mil-bot here. I noticed you haven't connected your GitHub account yet. GitHub is a platform that your team uses to track progress of tasks. Please remember that at least one contribution to GitHub is required each week. This week's contribution is due in **twelve hours.** If you have questions about this, please see the {self.bot.member_services_channel.mention} channel or message your team lead. Thank you!",
+                    )
+                    logger.info(
+                        f"Sent first individual reminder (to join GitHub) to {student.member}.",
+                    )
+                    continue
                 try:
                     await student.member.send(
                         f"Hey **{student.first_name}**! It's your friendly uf-mil-bot here. I noticed you haven't provided a contribution or status update through GitHub this week. Please create it by {discord.utils.format_dt(deadline_tonight, 't')} tonight. Thank you!",
@@ -1033,8 +1054,20 @@ class ReportsCog(commands.Cog):
             datetime.date.today(),
             datetime.time(23, 59, 59),
         )
+        async with self.bot.db_factory() as db:
+            authenticated_discord_users = {
+                user.discord_id for user in await db.authenticated_members()
+            }
         for student in students:
             if student.member:
+                if student.member.id not in authenticated_discord_users:
+                    await student.member.send(
+                        f"Hey **{student.first_name}**! It's your friendly uf-mil-bot here. I noticed you haven't connected your GitHub account yet. GitHub is a platform that your team uses to track progress of tasks. Please remember that at least one contribution to GitHub is required each week. This week's contribution is due in **four hours.** If you have questions about this, please see the {self.bot.member_services_channel.mention} channel or message your team lead. Thank you!",
+                    )
+                    logger.info(
+                        f"Sent second individual reminder (to join GitHub) to {student.member}.",
+                    )
+                    continue
                 try:
                     await student.member.send(
                         f"Hey **{student.first_name}**! It's your friendly uf-mil-bot here again. I noticed you haven't created your contribution or status update for this week yet. There are only **four hours** remaining to create your contribution! Please submit it through GitHub by {discord.utils.format_dt(deadline_tonight, 't')} tonight. Thank you!",
