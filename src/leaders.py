@@ -1,6 +1,7 @@
 """
 Provides functionality related to leadership of MIL.
 """
+
 from __future__ import annotations
 
 import asyncio

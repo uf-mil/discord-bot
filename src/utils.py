@@ -127,13 +127,11 @@ def capped_str(parts: list[str], cap: int = 1024) -> str:
     If the parts are capped, "_... (X after)_" is appended to the end.
     """
     result = ""
-    made_it = 0
-    for part in parts:
+    for made_it, part in enumerate(parts):
         if len(result) + len(part) + len("\n_... (99 after)_") > cap:
             result += f"_... ({len(parts) - made_it} after)_"
             break
         result += part + "\n"
-        made_it += 1
     return result.strip()
 
 

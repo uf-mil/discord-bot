@@ -101,7 +101,7 @@ class GitHubUsernameModal(MILBotModal):
                 )
             if e.status == 422:
                 await interaction.response.send_message(
-                    "Validaton failed, the user might already be in the organization.",
+                    "Validation failed, the user might already be in the organization.",
                     ephemeral=True,
                 )
             return
@@ -754,9 +754,11 @@ class GitHubCog(commands.Cog):
         )
         res.add_field(
             name="Milestone",
-            value=f"[`{issue['milestone']['title']}`]({issue['milestone']['html_url']})"
-            if issue["milestone"]
-            else "None",
+            value=(
+                f"[`{issue['milestone']['title']}`]({issue['milestone']['html_url']})"
+                if issue["milestone"]
+                else "None"
+            ),
             inline=True,
         )
         return res

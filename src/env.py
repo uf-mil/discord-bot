@@ -7,18 +7,15 @@ load_dotenv()
 
 
 @overload
-def ensure_string(name: str, optional: Literal[False] = False) -> str:
-    ...
+def ensure_string(name: str, optional: Literal[False] = False) -> str: ...
 
 
 @overload
-def ensure_string(name: str, optional: Literal[True] = True) -> str | None:
-    ...
+def ensure_string(name: str, optional: Literal[True] = True) -> str | None: ...
 
 
 @overload
-def ensure_string(name: str, optional: bool) -> str | None:
-    ...
+def ensure_string(name: str, optional: bool) -> str | None: ...
 
 
 def ensure_string(name: str, optional: bool = False) -> str | None:

@@ -82,9 +82,11 @@ class Event:
             title=title,
             start=event.get("dtstart").dt,
             end=event.get("dtend").dt,
-            location=event.get("location").to_ical().decode("utf-8")
-            if event.get("location")
-            else "",
+            location=(
+                event.get("location").to_ical().decode("utf-8")
+                if event.get("location")
+                else ""
+            ),
             type=type,
             team=team,
         )

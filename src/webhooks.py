@@ -726,6 +726,7 @@ class Webhooks(commands.Cog):
         # [User A](link) created a project [project_name](link)
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
         url = f"https://github.com/orgs/{gh['projects_v2']['owner']['login']}/projects/{gh['projects_v2']['number']}"
+
         # All projects_v2_created webhooks have the project title listed as
         # @user's untitled project, so we should wait a little bit of time
         # and then fetch the title later
