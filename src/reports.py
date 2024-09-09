@@ -882,6 +882,13 @@ class ReportsCog(commands.Cog):
         )
         return f"* {format_dt} {payload['repository']['full_name']} @ {payload['sha'][:8]} ({payload['commit']['message']})"
 
+    def _format_commit_str_from_all_branches(self, payload: dict) -> str:
+        format_dt = discord.utils.format_dt(
+            datetime.datetime.fromisoformat(payload["author"]["date"]),
+            "F",
+        )
+        return f"* {format_dt} {payload['repository']['nameWithOwner']} @ {payload['oid'][:8]} ({payload['message']})"
+
     async def refresh_sheet(self) -> None:
         main_worksheet = await self.bot.sh.get_worksheet(0)
         cur_semester = semester_given_date(datetime.datetime.now())
@@ -890,7 +897,29 @@ class ReportsCog(commands.Cog):
         async with self.bot.db_factory() as db:
             for member in await db.authenticated_members():
                 token = str(member.access_token)
-                contributions = await self.bot.github.get_user_contributions(token)
+                try:
+                    contributions = await self.bot.github.get_user_contributions(token)
+                except Exception:
+                    logger.exception(
+                        f"Error fetching contributions for {member.discord_id}",
+                    )
+                    continue
+                try:
+                    discord_member = await self.bot.get_or_fetch_member(
+                        member.discord_id,
+                    )
+                except discord.NotFound:
+                    logger.info(
+                        f"Could not find member with ID {member.discord_id}.",
+                    )
+                    continue
+                electrical_role = discord.utils.get(
+                    self.bot.active_guild.roles,
+                    name="EGN4912 Electrical",
+                )
+                if not electrical_role:
+                    raise RuntimeError("Could not find EGN4912 Electrical role.")
+                is_electrical_member = electrical_role in discord_member.roles
                 summaries = {}
                 if contributions.issue_comments:
                     summaries["Comments"] = [
@@ -907,27 +936,26 @@ class ReportsCog(commands.Cog):
                         self._format_issue_str(payload)
                         for payload in contributions.pull_requests
                     ]
-                if contributions.commits:
+                if contributions.commits and not is_electrical_member:
                     summaries["Commits"] = [
                         self._format_commit_str(payload)
                         for payload in contributions.commits
                     ]
+                if is_electrical_member:
+                    try:
+                        commits = await self.bot.github.commits_across_branches(token)
+                        if commits:
+                            summaries["Commits"] = [
+                                self._format_commit_str_from_all_branches(payload)
+                                for payload in commits
+                            ]
+                    except Exception:
+                        logger.exception(
+                            f"Error fetching commits across branches for user {member.discord_id}",
+                        )
                 summary_str = "\n\n".join(
                     f"**{k}**:\n" + "\n".join(v) for k, v in summaries.items()
                 )
-                discord_member = self.bot.active_guild.get_member(
-                    int(member.discord_id),
-                )
-                if not discord_member:
-                    try:
-                        discord_member = await self.bot.active_guild.fetch_member(
-                            int(member.discord_id),
-                        )
-                    except discord.NotFound:
-                        logger.info(
-                            f"Could not find member with ID {member.discord_id}.",
-                        )
-                        continue
                 id_cell = await main_worksheet.find(discord_member.name)
                 a1_notation = gspread.utils.rowcol_to_a1(id_cell.row, week.report_column)  # type: ignore
                 summary_str = summary_str.strip()

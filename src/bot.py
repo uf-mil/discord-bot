@@ -212,9 +212,12 @@ class MILBot(commands.Bot):
         ]
         await self.change_presence(activity=random.choice(activities))
 
-    async def get_member(self, user_id: int) -> discord.Member:
+    async def get_or_fetch_member(self, user_id: int) -> discord.Member:
         """
         Gets a member from the active guild, fetching them if necessary.
+
+        Raises:
+            NotFound: The member was not in the guild.
         """
         member = self.active_guild.get_member(user_id)
         if not member:

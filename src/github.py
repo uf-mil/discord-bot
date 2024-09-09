@@ -283,6 +283,88 @@ class GitHub:
             properties["data"]["node"]["owner"]["login"],
         )
 
+    async def commits_across_branches(
+        self,
+        user_token: str,
+        *,
+        organization: str = "uf-mil-electrical",
+    ) -> list[dict[str, Any]]:
+        previous_monday_midnight = (
+            datetime.datetime.now().astimezone()
+            - datetime.timedelta(
+                days=datetime.datetime.now().weekday(),
+            )
+        )
+        previous_monday_midnight = previous_monday_midnight.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        previous_monday_format = previous_monday_midnight.isoformat()
+        query = f"""
+        {{
+            viewer {{
+              login
+            }}
+            organization(login: "{organization}") {{
+            repositories(first: 10, orderBy: {{field: PUSHED_AT, direction: DESC}}) {{
+              nodes {{
+                refs(first: 30, refPrefix: "refs/heads/") {{
+                  nodes {{
+                    ... on Ref {{
+                      name
+                      target {{
+                        ... on Commit {{
+                          history(first: 10, since: "{previous_monday_format}") {{
+                            nodes {{
+                              ... on Commit {{
+                                author {{
+                                  date
+                                  email
+                                  user {{
+                                    login
+                                  }}
+                                }}
+                                oid
+                                message
+                                repository {{
+                                  nameWithOwner
+                                }}
+                              }}
+                            }}
+                          }}
+                        }}
+                      }}
+                    }}
+                  }}
+                }}
+              }}
+            }}
+          }}
+        }}
+        """
+        properties = await self.fetch(
+            "https://api.github.com/graphql",
+            method="POST",
+            data=json.dumps({"query": query}),
+            user_access_token=user_token,
+        )
+        commits = []
+        login = properties["data"]["viewer"]["login"]
+        for repo in properties["data"]["organization"]["repositories"]["nodes"]:
+            for branch in repo["refs"]["nodes"]:
+                for commit in branch["target"]["history"]["nodes"]:
+                    if commit["author"]["user"]["login"] == login:
+                        commits.append(commit)
+        commits.sort(
+            key=lambda commit: datetime.datetime.fromisoformat(
+                commit["author"]["date"],
+            ),
+            reverse=True,
+        )
+        return commits
+
     async def project_item_content_title_number_url(
         self,
         id: str,

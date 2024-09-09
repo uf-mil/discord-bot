@@ -152,7 +152,7 @@ class TestingSignUpSelect(discord.ui.Select):
             id = re.findall(r"<@!?(\d+)>", mention_str)
             swimming = "(swimming)" in mention_str
             if id:
-                member = await self.bot.get_member(int(id[0]))
+                member = await self.bot.get_or_fetch_member(int(id[0]))
                 members.append(TestingMember(member, swimming))
         return members
 
