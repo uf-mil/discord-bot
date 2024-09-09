@@ -897,7 +897,13 @@ class ReportsCog(commands.Cog):
         async with self.bot.db_factory() as db:
             for member in await db.authenticated_members():
                 token = str(member.access_token)
-                contributions = await self.bot.github.get_user_contributions(token)
+                try:
+                    contributions = await self.bot.github.get_user_contributions(token)
+                except Exception:
+                    logger.exception(
+                        f"Error fetching contributions for {member.discord_id}",
+                    )
+                    continue
                 try:
                     discord_member = await self.bot.get_or_fetch_member(
                         member.discord_id,
@@ -935,11 +941,18 @@ class ReportsCog(commands.Cog):
                         self._format_commit_str(payload)
                         for payload in contributions.commits
                     ]
-                if contributions.commits and is_electrical_member:
-                    summaries["Commits"] = [
-                        self._format_commit_str_from_all_branches(payload)
-                        for payload in await self.bot.github.commits_across_branches()
-                    ]
+                if is_electrical_member:
+                    try:
+                        commits = await self.bot.github.commits_across_branches(token)
+                        if commits:
+                            summaries["Commits"] = [
+                                self._format_commit_str_from_all_branches(payload)
+                                for payload in commits
+                            ]
+                    except Exception:
+                        logger.exception(
+                            f"Error fetching commits across branches for user {member.discord_id}",
+                        )
                 summary_str = "\n\n".join(
                     f"**{k}**:\n" + "\n".join(v) for k, v in summaries.items()
                 )

@@ -285,6 +285,7 @@ class GitHub:
 
     async def commits_across_branches(
         self,
+        user_token: str,
         *,
         organization: str = "uf-mil-electrical",
     ) -> list[dict[str, Any]]:
@@ -347,6 +348,7 @@ class GitHub:
             "https://api.github.com/graphql",
             method="POST",
             data=json.dumps({"query": query}),
+            user_access_token=user_token,
         )
         commits = []
         login = properties["data"]["viewer"]["login"]
