@@ -778,13 +778,36 @@ class ReportHistoryButton(discord.ui.Button):
             emoji = emojis.get(float(score) if score else score, "❓")
             # Format: May 13
             start_date = column.date_range[0].strftime("%B %-d")
-            capped_report = f"* {report}" if len(report) < 900 else f"* {report}..."
+            capped_report = (
+                f"* {report}" if len(report) < 900 else f"* {report[:900]}..."
+            )
             if score and float(score):
                 capped_report += (
                     f"\n* **This report added +{float(score)} to your missing score.**"
                 )
+            is_current_week = column == WeekColumn.current()
+            next_update = "tomorrow, 6am"
+            # If on sunday before 12pm, then "12pm"
+            if (
+                datetime.datetime.now().weekday() == calendar.SUNDAY
+                and 6 <= datetime.datetime.now().hour < 12
+            ):
+                next_update = "12pm"
+            # If on sunday before 8pm, then "8pm"
+            elif (
+                datetime.datetime.now().weekday() == calendar.SUNDAY
+                and datetime.datetime.now().hour < 20
+            ):
+                next_update = "8pm"
+            # Otherwise, never
+            elif datetime.datetime.now().weekday() == calendar.SUNDAY:
+                next_update = "never"
             embed.add_field(
-                name=f"{emoji} Week of `{start_date}`",
+                name=(
+                    f"{emoji} Week of `{start_date}`"
+                    if not is_current_week
+                    else f"{emoji} Current Week (next refresh: {next_update})"
+                ),
                 value=capped_report,
                 inline=False,
             )
@@ -870,7 +893,13 @@ class ReportsCog(commands.Cog):
         """
 
     def _format_issue_comment_str(self, payload: dict) -> str:
-        return f"* {payload['repository']['nameWithOwner']}#{payload['issue']['number']} (\"{payload['issue']['title']}\"): \"{payload['bodyText']}\""
+        no_newline_body = payload["bodyText"].replace("\n", " / ")
+        no_newline_body = (
+            no_newline_body[:300] + "..."
+            if len(no_newline_body) > 300
+            else no_newline_body
+        )
+        return f"* {payload['repository']['nameWithOwner']}#{payload['issue']['number']} (\"{payload['issue']['title']}\"): \"{no_newline_body}\""
 
     def _format_issue_str(self, payload: dict) -> str:
         return f"* {payload['repository']['nameWithOwner']}#{payload['number']} (\"{payload['title']}\")"
@@ -880,14 +909,26 @@ class ReportsCog(commands.Cog):
             datetime.datetime.fromisoformat(payload["commit"]["author"]["date"]),
             "F",
         )
-        return f"* {format_dt} {payload['repository']['full_name']} @ {payload['sha'][:8]} ({payload['commit']['message']})"
+        no_newline_message = payload["commit"]["message"].replace("\n", " / ")
+        no_newline_message = (
+            no_newline_message[:100] + "..."
+            if len(no_newline_message) > 100
+            else no_newline_message
+        )
+        return f"* {format_dt} {payload['repository']['full_name']} @ {payload['sha'][:8]} ({no_newline_message})"
 
     def _format_commit_str_from_all_branches(self, payload: dict) -> str:
         format_dt = discord.utils.format_dt(
             datetime.datetime.fromisoformat(payload["author"]["date"]),
             "F",
         )
-        return f"* {format_dt} {payload['repository']['nameWithOwner']} @ {payload['oid'][:8]} ({payload['message']})"
+        no_newline_message = payload["message"].replace("\n", " / ")
+        no_newline_message = (
+            no_newline_message[:100] + "..."
+            if len(no_newline_message) > 100
+            else no_newline_message
+        )
+        return f"* {format_dt} {payload['repository']['nameWithOwner']} @ {payload['oid'][:8]} ({no_newline_message})"
 
     async def refresh_sheet(self) -> None:
         main_worksheet = await self.bot.sh.get_worksheet(0)
