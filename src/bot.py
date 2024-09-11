@@ -227,6 +227,7 @@ class MILBot(commands.Bot):
     async def setup_hook(self) -> None:
         # Load extensions
         extensions = (
+            "src.admin",
             "src.calendar",
             "src.github",
             "src.leaders",
@@ -234,9 +235,9 @@ class MILBot(commands.Bot):
             "src.projects",
             "src.reports",
             "src.roles",
+            "src.testing",
             "src.webhooks",
             "src.welcome",
-            "src.testing",
         )
         for i, extension in enumerate(extensions):
             try:

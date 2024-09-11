@@ -34,6 +34,9 @@ class GitHubOauthMember(Base):
     device_code = mapped_column(String, nullable=False)
     access_token = mapped_column(String, nullable=False)
 
+    def __str__(self) -> str:
+        return f"GitHubOauthMember(discord_id={self.discord_id}, device_code='{self.device_code[:4]}...', access_token='{self.access_token[:4]}...')"
+
 
 class Database(AsyncSession):
     def __init__(self, *, bot: MILBot, engine: AsyncEngine):
