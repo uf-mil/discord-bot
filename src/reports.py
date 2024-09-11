@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, ClassVar
 import discord
 import gspread
 import gspread_asyncio
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from .constants import SCHWARTZ_EMAIL, Team, semester_given_date
 from .email import Email
@@ -786,27 +786,17 @@ class ReportHistoryButton(discord.ui.Button):
                     f"\n* **This report added +{float(score)} to your missing score.**"
                 )
             is_current_week = column == WeekColumn.current()
-            next_update = "tomorrow, 6am"
-            # If on sunday before 12pm, then "12pm"
-            if (
-                datetime.datetime.now().weekday() == calendar.SUNDAY
-                and 6 <= datetime.datetime.now().hour < 12
-            ):
-                next_update = "12pm"
-            # If on sunday before 8pm, then "8pm"
-            elif (
-                datetime.datetime.now().weekday() == calendar.SUNDAY
-                and datetime.datetime.now().hour < 20
-            ):
-                next_update = "8pm"
-            # Otherwise, never
-            elif datetime.datetime.now().weekday() == calendar.SUNDAY:
-                next_update = "never"
+            next_iteration = self.bot.reports_cog.regular_refresh.next_iteration
+            if next_iteration is None:
+                raise RuntimeError("No next iteration found.")
+            next_iteration_formatted = next_iteration.astimezone().strftime(
+                "%A, %B %d at %I:%M %p",
+            )
             embed.add_field(
                 name=(
                     f"{emoji} Week of `{start_date}`"
                     if not is_current_week
-                    else f"{emoji} Current Week (next refresh: {next_update})"
+                    else f"{emoji} Current Week (next refresh: {next_iteration_formatted})"
                 ),
                 value=capped_report,
                 inline=False,
@@ -861,7 +851,7 @@ class ReportsCog(commands.Cog):
         self.first_individual_reminder.start(self)
         self.second_individual_reminder.start(self)
         self.update_report_channel.start(self)
-        self.regular_refresh.start(self)
+        self.regular_refresh.start()
 
     @run_on_weekday(calendar.FRIDAY, 12, 0, check=is_active)
     async def post_reminder(self):
@@ -1013,9 +1003,13 @@ class ReportsCog(commands.Cog):
                     ],
                 )
 
-    @run_on_weekday(day=EVERYDAY, hour=6, minute=0)
+    @tasks.loop(hours=2)
     async def regular_refresh(self) -> None:
+        await self.bot.wait_until_ready()
         await self.refresh_sheet()
+        logger.info(
+            f"Refreshed contributions. Next running time: {self.regular_refresh.next_iteration}",
+        )
 
     async def students_status(self, column: int) -> list[Student]:
         await self.refresh_sheet()
