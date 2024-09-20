@@ -164,7 +164,8 @@ class Webhooks(commands.Cog):
                 await updates_channel.send(
                     f"{name} {pushed} a commit{by_statement} to {branch} in {repo} ({compare}): {message}",
                 )
-            else:
+            # ignore webhooks with zero commits
+            elif commit_count > 1:
                 formatted_commits = [
                     f"* [`{commit['id'][:7]}`]({self.url(commit)}): \"{self.natural_wrap(commit['message'])[:100]}\""
                     for commit in gh["commits"]
