@@ -166,7 +166,7 @@ class Webhooks(commands.Cog):
                 )
             else:
                 formatted_commits = [
-                    f"* [`{commit['id'][:7]}`]({self.url(commit)}): \"{commit['message'][:100]}\""
+                    f"* [`{commit['id'][:7]}`]({self.url(commit)}): \"{self.natural_wrap(commit['message'])[:100]}\""
                     for commit in gh["commits"]
                 ]
                 formatted_commits_str = "\n".join(formatted_commits)
@@ -326,9 +326,10 @@ class Webhooks(commands.Cog):
         commit = f"[`{gh['comment']['commit_id'][:7]}`]({self.url(gh['comment'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         comment = f"\"{self.natural_wrap(gh['comment']['body'])}\""
+        commented = f"[commented]({self.url(gh['comment'], html=True)})"
         updates_channel = self.updates_channel(gh["repository"])
         await updates_channel.send(
-            f"{name} commented on commit {commit} in {repo}: {comment}",
+            f"{name} {commented} on commit {commit} in {repo}: {comment}",
         )
 
     @Server.route()
@@ -340,9 +341,10 @@ class Webhooks(commands.Cog):
         issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         comment = f"\"{self.natural_wrap(gh['comment']['body'])}\""
+        commented = f"[commented]({self.url(gh['comment'], html=True)})"
         updates_channel = self.updates_channel(gh["repository"])
         await updates_channel.send(
-            f"{name} commented on issue {issue} in {repo}: {comment}",
+            f"{name} {commented} on issue {issue} in {repo}: {comment}",
         )
 
     @Server.route()
@@ -355,11 +357,12 @@ class Webhooks(commands.Cog):
         issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         updates_channel = self.updates_channel(gh["repository"])
+        issue_title = f"\"{gh['issue']['title']}\""
         # If the issue has a *-notify label, send a message to the relevant channel
         message = (
-            f"{name} self-assigned issue {issue} in {repo}"
+            f"{name} self-assigned issue {issue} in {repo}: {issue_title}"
             if gh["assignee"]["login"] == gh["sender"]["login"]
-            else f"{name} assigned {assigned} to issue {issue} in {repo}"
+            else f"{name} assigned {assigned} to issue {issue} in {repo}: {issue_title}"
         )
         await updates_channel.send(message)
 
@@ -373,10 +376,11 @@ class Webhooks(commands.Cog):
         issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         updates_channel = self.updates_channel(gh["repository"])
+        issue_title = f"\"{gh['issue']['title']}\""
         message = (
-            f"{name} unassigned themself from issue {issue} in {repo}"
+            f"{name} unassigned themself from issue {issue} in {repo}: {issue_title}"
             if gh["assignee"]["login"] == gh["sender"]["login"]
-            else f"{name} unassigned {unassigned} from issue {issue} in {repo}"
+            else f"{name} unassigned {unassigned} from issue {issue} in {repo}: {issue_title}"
         )
         await updates_channel.send(message)
 
@@ -481,7 +485,7 @@ class Webhooks(commands.Cog):
     async def issue_comment_created(self, payload: ClientPayload):
         gh = payload.github_data
         # Send a message to github-updates in the form of:
-        # [User A](link) commented on issue [#XXX](link) in [repo_name](link): "comment"
+        # [User A](link) commented on issue [#XXX](link) ("title") in [repo_name](link): "comment"
 
         # Ignore uf-mil-bot comments (which are automated and not useful to notify on)
         if gh["sender"]["login"] == "uf-mil-bot":
@@ -491,9 +495,11 @@ class Webhooks(commands.Cog):
         issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         comment = f"\"{self.natural_wrap(gh['comment']['body'])}\""
+        commented = f"[commented]({self.url(gh['comment'], html=True)})"
         updates_channel = self.updates_channel(gh["repository"])
+        issue_title = f"\"{gh['issue']['title']}\""
         await updates_channel.send(
-            f"{name} commented on issue {issue} in {repo}: {comment}",
+            f"{name} {commented} on issue {issue} ({issue_title}) in {repo}: {comment}",
         )
 
     @Server.route()
