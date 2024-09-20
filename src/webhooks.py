@@ -632,12 +632,7 @@ class Webhooks(commands.Cog):
         )
         task = f"[#{number}](<{url}>)"
         item = f'"{title}"'
-        updates_channel = discord.utils.get(
-            self.category_channel(proj_org).text_channels,
-            name=proj_title.lower().replace(" ", "-"),
-        )
-        if not updates_channel:
-            return
+        updates_channel = self.updates_channel(gh["organization"]["login"])
 
         to_dt = (
             datetime.datetime.fromisoformat(
@@ -672,7 +667,7 @@ class Webhooks(commands.Cog):
                 f" ({'+' if day_diff > 0 else ''}{day_diff}d)" if day_diff else ""
             )
             await updates_channel.send(
-                f"{name} updated the due date of a task ({task}) from {prev_dt} to {to_dt}{day_diff_str} in {project}: {item}",
+                f"{name} updated the due date of a task ({task}) in {project} from {prev_dt} to {to_dt}{day_diff_str}: {item}",
             )
             self._project_v2_item_change_dates.pop(node_id)
 
