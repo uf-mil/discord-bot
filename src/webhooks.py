@@ -395,7 +395,7 @@ class Webhooks(commands.Cog):
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         title = f"\"{gh['pull_request']['title']}\""
         updates_channel = self.updates_channel(gh["repository"])
-        if gh["changes"]["title"]:
+        if "title" in gh["changes"] and gh["changes"]["title"]:
             await updates_channel.send(
                 f"{name} edited the title of pull request {pr} in {repo} to {title}",
             )
