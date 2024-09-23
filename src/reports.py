@@ -211,6 +211,7 @@ class NegativeReportButton(ReportReviewButton):
 
     async def callback(self, interaction: discord.Interaction):
         assert self.view is not None
+        logger.info(f"{interaction.user} graded {self.student.name} as Red/Negative.")
         await self.respond_early(
             interaction,
             f"{self.bot.loading_emoji} Logging score and sending email to student...",
@@ -223,6 +224,9 @@ class NegativeReportButton(ReportReviewButton):
         # Notify necessary people
         if new_score > 4:
             # Student needs to be fired
+            logger.warn(
+                f"Sending firing email for {self.student} (new score: {new_score} > 4)...",
+            )
             email = FiringEmail(self.student)
             await self.bot.leaders_channel.send(
                 f"🔥 {self.student.name} has been removed from the lab due to excessive missing reports.",
@@ -249,6 +253,7 @@ class WarningReportButton(ReportReviewButton):
         )
 
     async def callback(self, interaction: discord.Interaction):
+        logger.info(f"{interaction.user} graded {self.student.name} as Yellow.")
         await self.respond_early(
             interaction,
             f"{self.bot.loading_emoji} Logging score and sending email to student...",
@@ -261,6 +266,9 @@ class WarningReportButton(ReportReviewButton):
         # Notify necessary people
         if new_score > 4:
             # Student needs to be fired
+            logger.warn(
+                f"Sending firing email for {self.student} (new score: {new_score} > 4)...",
+            )
             email = FiringEmail(self.student)
             await self.bot.leaders_channel.send(
                 f"🔥 {self.student.name} has been removed from the lab due to excessive missing reports.",
@@ -288,6 +296,7 @@ class GoodReportButton(ReportReviewButton):
         )
 
     async def callback(self, interaction: discord.Interaction):
+        logger.info(f"{interaction.user} graded {self.student.name} as Green/Good.")
         await self.respond_early(
             interaction,
             f"{self.bot.loading_emoji} Logging score and sending email to student...",
@@ -315,6 +324,7 @@ class SkipReportButton(ReportReviewButton):
         )
 
     async def callback(self, interaction: discord.Interaction):
+        logger.info(f"{interaction.user} skipped {self.student.name}.")
         await interaction.response.defer()
         assert self.view is not None
         self.view.stop()
@@ -343,6 +353,7 @@ class StartReviewView(MILBotView):
     )
     async def start(self, interaction: discord.Interaction, _: discord.ui.Button):
         # We can assume that this button was pressed in a X-leadership channel
+        logger.info(f"{interaction.user} started the weekly report review process.")
         await interaction.response.send_message(
             f"{self.bot.loading_emoji} Thanks for starting this review! Pulling data...",
             ephemeral=True,
@@ -357,7 +368,7 @@ class StartReviewView(MILBotView):
         team = Team.from_str(team_name)
         week = WeekColumn.last_week()
         column = week.report_column
-        students = await self.bot.reports_cog.students_status(column)
+        students = await self.bot.reports_cog.students_status(column, refresh=False)
         students = [s for s in students if s.team == team and s.report_score is None]
         if not len(students):
             await interaction.edit_original_response(
@@ -367,6 +378,7 @@ class StartReviewView(MILBotView):
             return
         else:
             for student in students:
+                logger.info(f"{interaction.user} is grading {student.name}...")
                 view = ReportsReviewView(self.bot, student)
                 report_quoted = (
                     student.report.replace("\n", "\n> ") if student.report else ""
@@ -637,6 +649,9 @@ class OauthSetupButton(discord.ui.Button):
             expires_in_dt = self._github_oauth_responses[interaction.user][1]
         else:
             device_code_response = await self.bot.github.get_oauth_device_code()
+            logger.info(
+                f"Generated new device code for {interaction.user}: {device_code_response['device_code'][:3]}...",
+            )
             expires_in_dt = datetime.datetime.now() + datetime.timedelta(
                 seconds=device_code_response["expires_in"],
             )
@@ -678,6 +693,9 @@ class OauthSetupButton(discord.ui.Button):
             if "access_token" in resp:
                 access_token = resp["access_token"]
             if "error" in resp and resp["error"] == "access_denied":
+                logger.info(
+                    f"When authorizing GitHub, {interaction.user} denied access.",
+                )
                 await interaction.edit_original_response(
                     content="❌ Authorization was denied (did you hit cancel?). Please try again.",
                     view=None,
@@ -690,11 +708,15 @@ class OauthSetupButton(discord.ui.Button):
                     device_code,
                     access_token,
                 )
+            logger.info(f"Successfully authorized GitHub for {interaction.user}.")
             await interaction.edit_original_response(
                 content="Thanks! Your GitHub account has been successfully connected.",
                 view=None,
             )
         else:
+            logger.info(
+                f"Attempting GitHub authorization for {interaction.user} expired.",
+            )
             await interaction.edit_original_response(
                 content="❌ Authorization expired. Please try again.",
                 view=None,
@@ -1011,8 +1033,14 @@ class ReportsCog(commands.Cog):
             f"Refreshed contributions. Next running time: {self.regular_refresh.next_iteration}",
         )
 
-    async def students_status(self, column: int) -> list[Student]:
-        await self.refresh_sheet()
+    async def students_status(
+        self,
+        column: int,
+        *,
+        refresh: bool = True,
+    ) -> list[Student]:
+        if refresh:
+            await self.refresh_sheet()
         main_worksheet = await self.bot.sh.get_worksheet(0)
         names = await self.safe_col_values(main_worksheet, Column.NAME_COLUMN)
         discord_ids = await self.safe_col_values(
