@@ -58,6 +58,7 @@ def run_on_weekday(
 class RecurringTask:
 
     bot: MILBot | None
+    _args: tuple[Any, ...] | None
 
     def __init__(
         self,
@@ -75,6 +76,7 @@ class RecurringTask:
         self._shift = shift
         self._check = check
         self._task = None
+        self._args = None
 
     def _dt_from_weekday(
         self,
@@ -130,6 +132,8 @@ class RecurringTask:
             )
             return
 
+        if self._args is None:
+            raise RuntimeError("Task was not started before running.")
         try:
             return await self._func(*self._args)
         except Exception as e:
@@ -141,6 +145,8 @@ class RecurringTask:
     async def run_immediately(self):
         if self._task:
             self._task.cancel()
+        if self._args is None:
+            raise RuntimeError("Task was not started before running.")
         await self._func(*self._args)
         self.schedule()
 

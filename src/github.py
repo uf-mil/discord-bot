@@ -563,20 +563,16 @@ class GitHub:
         projects.sort(key=lambda p: p.title)
         return projects
 
-    async def get_user_contributions(self, user_token: str) -> UserContributions:
-        previous_monday_midnight = (
-            datetime.datetime.now().astimezone()
-            - datetime.timedelta(
-                days=datetime.datetime.now().weekday(),
-            )
-        )
-        previous_monday_midnight = previous_monday_midnight.replace(
-            hour=0,
-            minute=0,
-            second=0,
-            microsecond=0,
-        )
-        previous_monday_format = previous_monday_midnight.isoformat()
+    async def get_user_contributions(
+        self,
+        user_token: str,
+        start: datetime.datetime,
+        end: datetime.datetime | None = None,
+    ) -> UserContributions:
+        if not end:
+            end = datetime.datetime.now().astimezone()
+        start = start.astimezone()
+        start_format = start.isoformat()
         query = f"""query {{
           rateLimit {{
             remaining
@@ -620,7 +616,7 @@ class GitHub:
                 }}
               }}
             }}
-            issues(first: 100, filterBy: {{since: "{previous_monday_format}"}}) {{
+            issues(first: 100, filterBy: {{since: "{start_format}"}}) {{
               nodes {{
                 title
                 createdAt
@@ -650,8 +646,7 @@ class GitHub:
         filtered_issue_comments = [
             comment
             for comment in properties["data"]["viewer"]["issueComments"]["nodes"]
-            if datetime.datetime.fromisoformat(comment["createdAt"])
-            > previous_monday_midnight
+            if end > datetime.datetime.fromisoformat(comment["createdAt"]) > start
             and comment["repository"]["owner"]["login"].startswith("uf-mil")
         ]
         filtered_issue_comments.sort(
@@ -663,8 +658,7 @@ class GitHub:
             for pr in properties["data"]["viewer"]["pullRequests"]["nodes"]
             if pr["author"]["login"] == username
             and pr["repository"]["owner"]["login"].startswith("uf-mil")
-            and datetime.datetime.fromisoformat(pr["createdAt"])
-            > previous_monday_midnight
+            and end > datetime.datetime.fromisoformat(pr["createdAt"]) > start
         ]
         filtered_pull_requests.sort(
             key=lambda pr: datetime.datetime.fromisoformat(pr["createdAt"]),
@@ -675,8 +669,7 @@ class GitHub:
             for issue in properties["data"]["viewer"]["issues"]["nodes"]
             if issue["author"]["login"] == username
             and issue["repository"]["owner"]["login"].startswith("uf-mil")
-            and datetime.datetime.fromisoformat(issue["createdAt"])
-            > previous_monday_midnight
+            and end > datetime.datetime.fromisoformat(issue["createdAt"]) > start
         ]
 
         commits_call = (
@@ -684,7 +677,7 @@ class GitHub:
             + "/search/commits?q=author:"
             + username
             + "+org:uf-mil+org:uf-mil-electrical+org:uf-mil-mechanical+committer-date:>="
-            + previous_monday_format
+            + start_format
         )
         commits = await self.fetch(commits_call)
         commits = commits["items"]

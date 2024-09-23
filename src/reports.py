@@ -874,6 +874,7 @@ class ReportsCog(commands.Cog):
         self.second_individual_reminder.start(self)
         self.update_report_channel.start(self)
         self.regular_refresh.start()
+        self.final_refresh.start(self)
 
     @run_on_weekday(calendar.FRIDAY, 12, 0, check=is_active)
     async def post_reminder(self):
@@ -942,16 +943,34 @@ class ReportsCog(commands.Cog):
         )
         return f"* {format_dt} {payload['repository']['nameWithOwner']} @ {payload['oid'][:8]} ({no_newline_message})"
 
-    async def refresh_sheet(self) -> None:
+    async def refresh_sheet(self, previous_week: bool = False) -> None:
         main_worksheet = await self.bot.sh.get_worksheet(0)
         cur_semester = semester_given_date(datetime.datetime.now())
         cur_semester[0] if cur_semester else datetime.date.today()
-        week = WeekColumn.current()
+        week = WeekColumn.current() if not previous_week else WeekColumn.last_week()
+        previous_monday_midnight = (
+            datetime.datetime.now().astimezone()
+            - datetime.timedelta(
+                days=datetime.datetime.now().weekday(),
+            )
+        )
+        previous_monday_midnight = previous_monday_midnight.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        if previous_week:
+            previous_monday_midnight -= datetime.timedelta(weeks=1)
         async with self.bot.db_factory() as db:
             for member in await db.authenticated_members():
+                logger.info(f"Fetching contributions for {member.discord_id}...")
                 token = str(member.access_token)
                 try:
-                    contributions = await self.bot.github.get_user_contributions(token)
+                    contributions = await self.bot.github.get_user_contributions(
+                        token,
+                        start=previous_monday_midnight,
+                    )
                 except Exception:
                     logger.exception(
                         f"Error fetching contributions for {member.discord_id}",
@@ -1032,6 +1051,11 @@ class ReportsCog(commands.Cog):
         logger.info(
             f"Refreshed contributions. Next running time: {self.regular_refresh.next_iteration}",
         )
+
+    @run_on_weekday(calendar.MONDAY, 0, 0)
+    async def final_refresh(self) -> None:
+        await self.refresh_sheet(True)
+        logger.info("Final refresh for the previous week completed.")
 
     async def students_status(
         self,
