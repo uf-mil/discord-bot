@@ -314,8 +314,16 @@ class Webhooks(commands.Cog):
         pr = f"[#{gh['pull_request']['number']}]({self.url(gh['pull_request'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
         updates_channel = self.updates_channel(gh["repository"])
+        action_statement = "submitted a review on"
+        if gh["review"]["state"] == "changes_requested":
+            action_statement = "requested changes on"
+        elif gh["review"]["state"] == "approved":
+            action_statement = "approved"
+        elif gh["review"]["state"] == "commented":
+            action_statement = "commented on"
+
         await updates_channel.send(
-            f"{name} submitted a review on pull request {pr} in {repo}",
+            f"{name} {action_statement} pull request {pr} in {repo}",
         )
 
     @Server.route()
