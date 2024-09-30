@@ -7,6 +7,7 @@ import itertools
 import logging
 import os
 import random
+import re
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import TYPE_CHECKING, ClassVar
@@ -346,6 +347,93 @@ class StartReviewView(MILBotView):
         self.bot = bot
         super().__init__(timeout=None)
 
+    def _add_issue_links(self, content: str) -> str:
+        return re.sub(
+            r"([a-zA-Z._-]+)\/([a-zA-Z._-]+)\#(\d+)",
+            r"[\1/\2#\3](https://github.com/\1/\2/issues/\3)",
+            content,
+        )
+
+    def _parsed_report_embed(
+        self,
+        content: str,
+        student: Student,
+        color: discord.Color,
+    ) -> discord.Embed:
+        """
+        Parses a str in the format of (any of the fields could be missing):
+
+        **Comments:**
+        * owner/repo#num ("title"): "comment"
+
+        **Issues Opened:**
+        * owner/repo#num ("title")
+
+        **Pull Requests Opened:**
+        * owner/repo#num ("title")
+
+        **Commits:**
+        * <discord_time> owner/repo @ sha (message)
+        """
+        embed = discord.Embed(
+            title=f"{student.name}",
+            color=color,
+        )
+        if student.member:
+            file = self.bot.get_headshot(student.member)
+            if file:
+                embed.set_thumbnail(url=f"attachment://{file.filename}")
+        included_fields = content.split("\n\n")
+        field_emojis = {
+            "**Commits**:": "🔨",
+            "**Issues Opened**:": "📥",
+            "**Pull Requests Opened**:": "📤",
+            "**Comments**:": "💬",
+        }
+        for field in included_fields:
+            if not field:
+                continue
+            field_name, *field_content = field.split("\n")
+            field_emoji = field_emojis.get(field_name, "❓")
+            max_entries_before_limit = []
+            page = 1
+            while field_content:
+                entry = field_content.pop(0)
+                entry = self._add_issue_links(entry)
+                if len("\n".join([*max_entries_before_limit, entry])) > 1024:
+                    # Make sure that the last entry isn't skipped
+                    page_name = (
+                        f"{field_emoji} {field_name} (page {page})"
+                        if page > 1
+                        else f"{field_emoji} {field_name}"
+                    )
+                    entry_content = "\n".join(max_entries_before_limit)
+                    # Replace repo/owner#number with links
+                    embed.add_field(
+                        name=page_name,
+                        value=entry_content,
+                        inline=False,
+                    )
+                    max_entries_before_limit = []
+                    page += 1
+                max_entries_before_limit.append(entry)
+            if max_entries_before_limit:
+                page_name = (
+                    f"{field_emoji} {field_name} (page {page})"
+                    if page > 1
+                    else f"{field_emoji} {field_name}"
+                )
+                entry_content = "\n".join(max_entries_before_limit)
+                embed.add_field(
+                    name=page_name,
+                    value=entry_content,
+                    inline=False,
+                )
+            if not field_content:
+                continue
+            embed.add_field(name=field_name, value=field_content[:1024], inline=False)
+        return embed
+
     @discord.ui.button(
         label="Start Review",
         style=discord.ButtonStyle.green,
@@ -377,19 +465,27 @@ class StartReviewView(MILBotView):
             )
             return
         else:
-            for student in students:
+            for i, student in enumerate(students):
                 logger.info(f"{interaction.user} is grading {student.name}...")
                 view = ReportsReviewView(self.bot, student)
-                report_quoted = (
-                    student.report.replace("\n", "\n> ") if student.report else ""
+                color_percent = int(i / len(students) * 255)
+                color = discord.Color.from_rgb(
+                    color_percent,
+                    color_percent,
+                    color_percent,
                 )
                 await interaction.edit_original_response(
                     content=(
-                        f"Please grade the report by **{student.name}**:\n> {report_quoted[:1900]}"
+                        f"Please grade the report by **{student.name}**:"
                         if student.report
                         else f"❌ **{student.name}** did not complete any activity last week."
                     ),
                     view=view,
+                    embed=(
+                        self._parsed_report_embed(student.report, student, color)
+                        if student.report
+                        else None
+                    ),
                 )
                 await view.wait()
             await interaction.edit_original_response(
