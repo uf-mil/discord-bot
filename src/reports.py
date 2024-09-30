@@ -359,7 +359,7 @@ class StartReviewView(MILBotView):
         content: str,
         student: Student,
         color: discord.Color,
-    ) -> discord.Embed:
+    ) -> tuple[discord.Embed, discord.File | None]:
         """
         Parses a str in the format of (any of the fields could be missing):
 
@@ -379,6 +379,7 @@ class StartReviewView(MILBotView):
             title=f"{student.name}",
             color=color,
         )
+        file = None
         if student.member:
             file = self.bot.get_headshot(student.member)
             if file:
@@ -432,7 +433,7 @@ class StartReviewView(MILBotView):
             if not field_content:
                 continue
             embed.add_field(name=field_name, value=field_content[:1024], inline=False)
-        return embed
+        return embed, file
 
     @discord.ui.button(
         label="Start Review",
@@ -474,6 +475,11 @@ class StartReviewView(MILBotView):
                     color_percent,
                     color_percent,
                 )
+                embed, file = (
+                    self._parsed_report_embed(student.report, student, color)
+                    if student.report
+                    else (None, None)
+                )
                 await interaction.edit_original_response(
                     content=(
                         f"Please grade the report by **{student.name}**:"
@@ -481,11 +487,8 @@ class StartReviewView(MILBotView):
                         else f"❌ **{student.name}** did not complete any activity last week."
                     ),
                     view=view,
-                    embed=(
-                        self._parsed_report_embed(student.report, student, color)
-                        if student.report
-                        else None
-                    ),
+                    embed=embed,
+                    attachments=[file] if file else [],
                 )
                 await view.wait()
             await interaction.edit_original_response(
