@@ -679,7 +679,7 @@ class GitHub:
             + "+org:uf-mil+org:uf-mil-electrical+org:uf-mil-mechanical+committer-date:>="
             + start_format
         )
-        commits = await self.fetch(commits_call)
+        commits = await self.fetch(commits_call, user_access_token=user_token)
         commits = commits["items"]
         commits.sort(
             key=lambda commit: datetime.datetime.fromisoformat(
