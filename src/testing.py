@@ -345,7 +345,7 @@ class TestingCog(commands.Cog):
                 inline=False,
             )
         mention = (
-            self.bot.leaders_role.mention
+            self.bot.robotx_2024_role.mention
             if interaction.channel == self.bot.leaders_channel
             else self.bot.egn4912_role.mention
         )

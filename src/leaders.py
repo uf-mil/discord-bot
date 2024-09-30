@@ -301,7 +301,7 @@ class Leaders(commands.Cog):
             discord.ui.Button(label="Meeting Notes", url=LEADERS_MEETING_NOTES_URL),
         )
         await self.bot.leaders_channel.send(
-            f"{self.bot.leaders_role.mention}",
+            f"{self.bot.robotx_2024_role.mention}",
             embed=embed,
             view=view,
         )
@@ -325,7 +325,7 @@ class Leaders(commands.Cog):
         )
         view.add_item(discord.ui.Button(label="Meeting Link", url=LEADERS_MEETING_URL))
         await self.bot.leaders_channel.send(
-            f"{self.bot.leaders_role.mention}",
+            f"{self.bot.robotx_2024_role.mention}",
             embed=embed,
             view=view,
         )
@@ -349,7 +349,7 @@ class Leaders(commands.Cog):
         )
         view.add_item(discord.ui.Button(label="Meeting Link", url=LEADERS_MEETING_URL))
         await self.bot.leaders_channel.send(
-            f"{self.bot.leaders_role.mention}",
+            f"{self.bot.robotx_2024_role.mention}",
             embed=embed,
             view=view,
         )
