@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import re
 from typing import TYPE_CHECKING
 
 import discord
@@ -58,11 +59,22 @@ class Webhooks(commands.Cog):
     def url(self, obj: dict[str, str], html=False) -> str:
         return f"<{obj['url']}>" if not html else f"<{obj['html_url']}>"
 
+    def safe_index(self, text: str, index: str) -> int:
+        try:
+            return text.index(index)
+        except ValueError:
+            return 100000
+
     def natural_wrap(self, text: str) -> str:
         # Wrap text to 1000 characters, or wherever is natural first (aka, the
         # first newline)
         if "\n" in text:
-            return text[: text.index("\n")][:1000] + "..."
+            split_index = min(
+                self.safe_index(text, "\n"),
+                self.safe_index(text, "\r"),
+                1000,
+            )
+            return text[:split_index] + "..."
         return text[:1000]
 
     def updates_channel(self, repository_or_login: dict | str) -> discord.TextChannel:
@@ -507,6 +519,25 @@ class Webhooks(commands.Cog):
         commented = f"[commented]({self.url(gh['comment'], html=True)})"
         updates_channel = self.updates_channel(gh["repository"])
         issue_title = f"\"{gh['issue']['title']}\""
+
+        # Forwarding
+        # in the form of body containing:
+        # > (forward to: #channel-name)
+        FORWARD_REGEX = r"\s*\(forward to: #([A-Za-z\-0-9]+)\)\s*"
+        forward_match = re.search(FORWARD_REGEX, gh["comment"]["body"])
+        if forward_match:
+            channel_name = forward_match.group(1)
+            channel = discord.utils.get(
+                self.bot.active_guild.text_channels,
+                name=channel_name,
+            )
+            comment = comment.replace(forward_match.group(0), "")
+            if channel:
+                their_comment = f"[their comment]({self.url(gh['comment'], html=True)})"
+                quoted_comment = "> " + comment.replace("\n", "\n> ")
+                await channel.send(
+                    f"{name} forwarded {their_comment} on issue {issue} ({issue_title}) in {repo} to this Discord channel:\n{quoted_comment}",
+                )
         await updates_channel.send(
             f"{name} {commented} on issue {issue} ({issue_title}) in {repo}: {comment}",
         )
