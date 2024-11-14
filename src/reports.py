@@ -969,6 +969,7 @@ class ReportsCog(commands.Cog):
         self.bot = bot
         self.post_reminder.start(self)
         self.last_week_summary.start(self)
+        self.ensure_graded.start(self)
         self.first_individual_reminder.start(self)
         self.second_individual_reminder.start(self)
         self.update_report_channel.start(self)
@@ -1309,6 +1310,41 @@ class ReportsCog(commands.Cog):
             )
             await team_leads_ch.send(
                 embed=review_embed,
+                view=StartReviewView(self.bot),
+            )
+
+    @run_on_weekday(
+        [calendar.THURSDAY, calendar.FRIDAY, calendar.SATURDAY, calendar.SUNDAY],
+        8,
+        0,
+    )
+    async def ensure_graded(self):
+        """
+        If any students are not graded, prompts the leaders to review reports again.
+        """
+        days_since_monday = (datetime.datetime.now().weekday() - 0) % 7
+        week = WeekColumn.last_week()
+        column = week.report_column
+        students = await self.bot.reports_cog.students_status(column, refresh=False)
+        for team in Team:
+            # no general team reports
+            if team == Team.GENERAL:
+                continue
+
+            team_students = [
+                s for s in students if s.team == team and s.report_score is None
+            ]
+            # print(team)
+            # print([s for s in students if s.team == team])
+            team_leads_ch = self.bot.team_leads_ch(team)
+
+            # skip teams who are done grading
+            if not len(team_students):
+                continue
+
+            message = f"Hello, {team!s} team! It has been {days_since_monday} days since the start of the week and there are {len(team_students)} students who are waiting on grades for their weekly reports. If you have a moment, please grade their reports. Thank you!"
+            await team_leads_ch.send(
+                message,
                 view=StartReviewView(self.bot),
             )
 
