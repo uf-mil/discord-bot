@@ -115,7 +115,6 @@ class MILBot(commands.Bot):
 
     # Roles
     egn4912_role: discord.Role
-    robotx_2024_role: discord.Role
     leaders_role: discord.Role
     sys_leads_role: discord.Role
     software_leads_role: discord.Role
@@ -412,13 +411,6 @@ class MILBot(commands.Bot):
         )
         assert isinstance(egn4912_role, discord.Role)
         self.egn4912_role = egn4912_role
-
-        robotx_2024_role = discord.utils.get(
-            self.active_guild.roles,
-            name="RobotX 2024",
-        )
-        assert isinstance(robotx_2024_role, discord.Role)
-        self.robotx_2024_role = robotx_2024_role
 
         leaders_role = discord.utils.get(
             self.active_guild.roles,
