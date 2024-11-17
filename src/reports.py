@@ -223,7 +223,7 @@ class NegativeReportButton(ReportReviewButton):
         new_score = self.student.total_score + 1
 
         # Notify necessary people
-        if new_score > 4:
+        if new_score >= 4:
             # Student needs to be fired
             logger.warn(
                 f"Sending firing email for {self.student} (new score: {new_score} > 4)...",
@@ -494,13 +494,14 @@ class StartReviewView(MILBotView):
             await interaction.edit_original_response(
                 content="✅ Nice work. All reports have been graded. Thank you for your help!",
                 view=None,
+                embed=None,
                 attachments=[await self.bot.good_job_gif()],
             )
         view = MILBotView()
         view.add_item(
             discord.ui.Button(
                 style=discord.ButtonStyle.secondary,
-                label="Review Complete",
+                label=f"Review completed by {interaction.user.display_name}",
                 disabled=True,
             ),
         )
