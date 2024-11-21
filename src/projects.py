@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import discord
 from discord.ext import commands, tasks
 
-from .github_types import SoftwareProject, SoftwareProjectStatus
+from .github.types import SoftwareProject, SoftwareProjectStatus
 from .reports import Team
 from .tasks import run_on_weekday
 from .views import MILBotView

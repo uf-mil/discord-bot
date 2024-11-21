@@ -17,7 +17,7 @@ from discord.ext import commands
 
 from .anonymous import AnonymousReportView
 from .env import LEADERS_MEETING_NOTES_URL, LEADERS_MEETING_URL
-from .github import GitHubInviteView
+from .github.views import GitHubInviteView
 from .tasks import run_on_weekday
 from .utils import is_active, make_and
 from .views import MILBotView

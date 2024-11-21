@@ -35,7 +35,8 @@ from .env import (
     GUILD_ID,
 )
 from .exceptions import MILBotErrorHandler, ResourceNotFound
-from .github import GitHub, GitHubInviteView
+from .github import GitHub
+from .github.views import GitHubInviteView
 from .leaders import AwayView
 from .projects import SoftwareProjectsView
 from .reports import ReportsCog, ReportsView, StartReviewView
@@ -229,7 +230,7 @@ class MILBot(commands.Bot):
         extensions = (
             "src.admin",
             "src.calendar",
-            "src.github",
+            "src.github.cog",
             "src.leaders",
             "src.logger",
             "src.projects",
