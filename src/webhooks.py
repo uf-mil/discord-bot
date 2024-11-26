@@ -178,13 +178,30 @@ class Webhooks(commands.Cog):
                 )
             # ignore webhooks with zero commits
             elif commit_count > 1:
-                formatted_commits = [
-                    f"* [`{commit['id'][:7]}`]({self.url(commit)}): \"{self.natural_wrap(commit['message'])[:100]}\""
-                    for commit in gh["commits"]
-                ]
+                preamble = f"{name} {pushed} {commit_count} commits to {branch} in {repo} ({compare}):\n"
+                ellipsis = f"* ... _and {commit_count - 1} more commits_"
+                formatted_commits = []
+                for commit in gh["commits"]:
+                    message = f"* [`{commit['id'][:7]}`]({self.url(commit)}): \"{self.natural_wrap(commit['message'])[:100]}\""
+                    if (
+                        sum(len(line) + 1 for line in formatted_commits)
+                        + len(message)
+                        + len(preamble)
+                        + len(ellipsis)
+                        < 2000
+                    ):
+                        formatted_commits.append(message)
+                    else:
+                        break
+                ellipsis = (
+                    f"* ... _and {commit_count - len(formatted_commits) - 1} more commits_"
+                    if len(formatted_commits) < commit_count - 1
+                    else ""
+                )
+                formatted_commits.append(ellipsis)
                 formatted_commits_str = "\n".join(formatted_commits)
                 await updates_channel.send(
-                    f"{name} {pushed} {commit_count} commits to {branch} in {repo} ({compare}):\n{formatted_commits_str}",
+                    f"{preamble}{formatted_commits_str}",
                 )
 
     @Server.route()
