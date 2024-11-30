@@ -19,12 +19,22 @@ def semester_given_date(
     date: datetime.datetime,
     *,
     next_semester: bool = False,
+    prev_semester: bool = False,
 ) -> tuple[datetime.date, datetime.date] | None:
-    for semester in SEMESTERS:
+    if prev_semester and next_semester:
+        raise ValueError(
+            "Cannot choose to select both the previous and next semester at once",
+        )
+    for i, semester in enumerate(SEMESTERS):
         if semester[0] <= date.date() <= semester[1]:
             return semester
+        if prev_semester and i > 0 and SEMESTERS[i - 1][1] < date.date() < semester[0]:
+            return SEMESTERS[i - 1]
         if next_semester and date.date() < semester[0]:
             return semester
+    # In case we want the previous semester, as in, the final semester
+    if prev_semester and date.date() > SEMESTERS[-1][1]:
+        return SEMESTERS[-1]
     return None
 
 

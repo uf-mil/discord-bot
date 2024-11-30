@@ -55,6 +55,8 @@ class WeekColumn:
 
     report_column: int
 
+    START_WEEKDAY = calendar.MONDAY
+
     @classmethod
     def _start_date(cls) -> datetime.date:
         semester = semester_given_date(datetime.datetime.now())
@@ -101,7 +103,9 @@ class WeekColumn:
         col_offset = (date - cls._start_date()).days // 7
         # Each week has two columns: one for the report and one for the score
         # +1 because columns are 1-indexed
-        return cls((col_offset * 2) + 1 + len(Column))
+        return cls(
+            (col_offset * 2) + 1 + len(Column),
+        )
 
     @classmethod
     def first(cls):
@@ -111,7 +115,21 @@ class WeekColumn:
         return cls(len(Column) + 1)
 
     @classmethod
-    def last_week(cls):
+    def final(cls):
+        """
+        The final full week of the semester. Notably, if the semester ends on a
+        day other than the final day of a week, this will not include the final
+        day of the semester.
+        """
+        # Days from start
+        total_days = (cls._end_date() - cls._start_date()).days
+        total_days, _ = divmod(total_days, 7)
+        return cls.from_date(
+            cls._start_date() + datetime.timedelta(days=total_days - 1),
+        )
+
+    @classmethod
+    def previous(cls):
         """
         The previous week.
         """
@@ -132,6 +150,33 @@ class WeekColumn:
             raise ValueError(
                 f"Cannot create report column with index {self.report_column}.",
             )
+
+
+@dataclass
+class PreviousWeekColumn(WeekColumn):
+    """
+    A week column in the previous semester, used for retrospective analysis, etc.
+    """
+
+    @classmethod
+    def _start_date(cls) -> datetime.date:
+        semester = semester_given_date(
+            datetime.datetime.now(),
+            prev_semester=True,
+        )
+        if not semester:
+            raise RuntimeError("No semester is occurring right now!")
+        return semester[0]
+
+    @classmethod
+    def _end_date(cls) -> datetime.date:
+        semester = semester_given_date(
+            datetime.datetime.now(),
+            prev_semester=True,
+        )
+        if not semester:
+            raise RuntimeError("No semester is occurring right now!")
+        return semester[1]
 
 
 class FiringEmail(Email):
@@ -192,7 +237,7 @@ class ReportReviewButton(discord.ui.Button):
         Logs the report score to the spreadsheet.
         """
         sh = await self.bot.sh.get_worksheet(0)
-        col = WeekColumn.last_week().score_column
+        col = WeekColumn.previous().score_column
         row = self.student.row
         await sh.update_cell(row, col, score)
 
@@ -455,7 +500,7 @@ class StartReviewView(MILBotView):
 
         team_name = str(interaction.channel.name).removesuffix("-leadership")
         team = Team.from_str(team_name)
-        week = WeekColumn.last_week()
+        week = WeekColumn.previous()
         column = week.report_column
         students = await self.bot.reports_cog.students_status(column, refresh=False)
         students = [s for s in students if s.team == team and s.report_score is None]
@@ -864,7 +909,14 @@ class ReportHistoryButton(discord.ui.Button):
         # Get all values for this member
         row_values = await main_worksheet.row_values(name_cell.row)
         # Iterate through week columns
-        week = WeekColumn.current()
+        previous_semester = False
+        try:
+            week = WeekColumn.current()
+        except RuntimeError:
+            # current() was out of range; semester is over so let's use the final
+            # week
+            week = PreviousWeekColumn.final()
+            previous_semester = True
         reports_scores = []
         start_column = len(Column) + 1
         end_column = len(row_values) + len(row_values) % 2
@@ -895,31 +947,38 @@ class ReportHistoryButton(discord.ui.Button):
             0.5: "⚠️",
             1: "❌",
         }
-        column = WeekColumn.first()
+        column = PreviousWeekColumn.first()
         for report, score in reports_scores:
             emoji = emojis.get(float(score) if score else score, "❓")
             # Format: May 13
             start_date = column.date_range[0].strftime("%B %-d")
+            # 6000 is max embed size, and add one extra report to acct for other text
+            max_report_size = int(6000 / (len(reports_scores) + 1))
             capped_report = (
-                f"* {report}" if len(report) < 900 else f"* {report[:900]}..."
+                f"* {report}"
+                if len(report) < max_report_size
+                else f"* {report[:max_report_size]}..."
             )
             if score and float(score):
                 capped_report += (
                     f"\n* **This report added +{float(score)} to your missing score.**"
                 )
-            is_current_week = column == WeekColumn.current()
-            next_iteration = self.bot.reports_cog.regular_refresh.next_iteration
-            if next_iteration is None:
-                raise RuntimeError("No next iteration found.")
-            next_iteration_formatted = next_iteration.astimezone().strftime(
-                "%A, %B %d at %I:%M %p",
+            is_current_week = (
+                column == WeekColumn.current() if not previous_semester else False
             )
+            header = f"{emoji} Week of `{start_date}`"
+            if is_current_week:
+                next_iteration = self.bot.reports_cog.regular_refresh.next_iteration
+                if next_iteration is None:
+                    raise RuntimeError("No next iteration found.")
+                next_iteration_formatted = next_iteration.astimezone().strftime(
+                    "%A, %B %d at %I:%M %p",
+                )
+                header = (
+                    f"{emoji} Current Week (next refresh: {next_iteration_formatted})"
+                )
             embed.add_field(
-                name=(
-                    f"{emoji} Week of `{start_date}`"
-                    if not is_current_week
-                    else f"{emoji} Current Week (next refresh: {next_iteration_formatted})"
-                ),
+                name=header,
                 value=capped_report,
                 inline=False,
             )
@@ -1048,7 +1107,7 @@ class ReportsCog(commands.Cog):
         main_worksheet = await self.bot.sh.get_worksheet(0)
         cur_semester = semester_given_date(datetime.datetime.now())
         cur_semester[0] if cur_semester else datetime.date.today()
-        week = WeekColumn.current() if not previous_week else WeekColumn.last_week()
+        week = WeekColumn.current() if not previous_week else WeekColumn.previous()
         previous_monday_midnight = (
             datetime.datetime.now().astimezone()
             - datetime.timedelta(
@@ -1324,7 +1383,7 @@ class ReportsCog(commands.Cog):
         If any students are not graded, prompts the leaders to review reports again.
         """
         days_since_monday = (datetime.datetime.now().weekday() - 0) % 7
-        week = WeekColumn.last_week()
+        week = WeekColumn.previous()
         column = week.report_column
         students = await self.bot.reports_cog.students_status(column, refresh=False)
         for team in Team:
