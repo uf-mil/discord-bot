@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 import discord
 from discord.app_commands import NoPrivateMessage
 from discord.ext import commands
+from discord.utils import maybe_coroutine
 
 from .anonymous import AnonymousReportView
 from .env import LEADERS_MEETING_NOTES_URL, LEADERS_MEETING_URL
@@ -85,9 +86,23 @@ class Leaders(commands.Cog):
 
     @commands.command()
     @commands.has_any_role("Software Leadership")
-    async def runtask(self, ctx: commands.Context, func_name: str):
+    async def runtask(
+        self,
+        ctx: commands.Context,
+        func_name: str,
+        always: bool = False,
+    ):
         for task in self.bot.tasks.recurring_tasks():
             if task._func.__name__ == func_name:
+                check_result = (
+                    await maybe_coroutine(task._check) if task._check else True
+                )
+                if not check_result and not always:
+                    await ctx.send(
+                        f"❌ Task `{func_name}` check failed, not running. Use `!runtask {func_name} True` to run anyway.",
+                    )
+                    return
+
                 msg = await ctx.send(
                     f"{self.bot.loading_emoji} Running task `{func_name}`... (started {discord.utils.format_dt(discord.utils.utcnow(), 'R')})",
                 )
