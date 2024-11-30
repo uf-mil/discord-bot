@@ -39,7 +39,9 @@ from .github import GitHub
 from .github.views import GitHubInviteView
 from .leaders import AwayView
 from .projects import SoftwareProjectsView
-from .reports import ReportsCog, ReportsView, StartReviewView
+from .reports.cog import ReportsCog
+from .reports.member_services import ReportsView
+from .reports.review import StartReviewView
 from .roles import MechanicalRolesView, SummerRolesView, TeamRolesView
 from .tasks import TaskManager
 from .testing import TestingSignUpView
@@ -234,7 +236,7 @@ class MILBot(commands.Bot):
             "src.leaders",
             "src.logger",
             "src.projects",
-            "src.reports",
+            "src.reports.cog",
             "src.roles",
             "src.testing",
             "src.webhooks",
