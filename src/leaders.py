@@ -182,12 +182,15 @@ class Leaders(commands.Cog):
                 f"{team_names[file]} team: {added_successfully[file]} members added successfully. Could not find: {', '.join(could_not_find[file])}",
             )
 
-    @commands.command(aliases=["yellowpages", "yp"])
-    @commands.has_any_role("Leaders")
+    @commands.command(aliases=["whitepages", "wp"])
     async def lookup(self, ctx: commands.Context, name: str):
         """
         Finds all users who could be related to by the name
         """
+        member = await self.bot.get_or_fetch_member(ctx.author.id)
+        if self.bot.leaders_role not in member.roles:
+            await ctx.reply("Sorry, you must be a leader to use this command!")
+            return
         members: list[discord.Member] = []
         for member in self.bot.active_guild.members:
             if name.lower() in member.display_name.lower():
