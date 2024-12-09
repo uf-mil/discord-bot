@@ -344,7 +344,7 @@ class ReportsCog(commands.Cog):
                         f"Could not send second individual report reminder to {student.member}.",
                     )
 
-    @run_on_weekday(calendar.MONDAY, 0, 0)
+    @run_on_weekday(calendar.MONDAY, 0, 0, check=is_active)
     async def last_week_summary(self):
         """
         Gives leaders a list of who submitted reports and who did not.
