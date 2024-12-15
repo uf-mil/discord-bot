@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import io
 import textwrap
@@ -24,6 +25,18 @@ class Admin(commands.Cog):
 
         # remove `foo`
         return content.strip("` \n")
+
+    @commands.command()
+    @commands.has_role("Leaders")
+    async def hash(self, ctx: commands.Context):
+        process = await asyncio.create_subprocess_exec(
+            "git",
+            "rev-parse",
+            "HEAD",
+            stdout=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await process.communicate()
+        await ctx.send(f"hash: `{stdout.decode('utf-8').strip()}`")
 
     @commands.command(hidden=True, name="eval")
     @commands.is_owner()
