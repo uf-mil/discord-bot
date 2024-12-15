@@ -81,6 +81,7 @@ class Leaders(commands.Cog):
             "^students-only$",
             "^.*-travel$",
             r"^.*-leadership$",
+            r"^alumni$",
         ]
         self.perm_notify_lock = asyncio.Lock()
 
@@ -459,7 +460,7 @@ class Leaders(commands.Cog):
                 entry = [
                     x
                     async for x in after.guild.audit_logs(
-                        limit=1,
+                        limit=2,
                         after=discord.utils.utcnow() - datetime.timedelta(seconds=5),
                     )
                     if x.action
