@@ -122,6 +122,8 @@ class MILBot(commands.Bot):
     sys_leads_role: discord.Role
     software_leads_role: discord.Role
     bot_role: discord.Role
+    alumni_role: discord.Role
+    new_grad_role: discord.Role
 
     # Cogs
     reports_cog: ReportsCog
@@ -449,6 +451,13 @@ class MILBot(commands.Bot):
         )
         assert isinstance(alumni_role, discord.Role)
         self.alumni_role = alumni_role
+
+        new_grad_role = discord.utils.get(
+            self.active_guild.roles,
+            name="New Graduate",
+        )
+        assert isinstance(new_grad_role, discord.Role)
+        self.new_grad_role = new_grad_role
 
         away_role = discord.utils.get(
             self.active_guild.roles,

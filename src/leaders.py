@@ -19,7 +19,7 @@ from discord.utils import maybe_coroutine
 from .anonymous import AnonymousReportView
 from .env import LEADERS_MEETING_NOTES_URL, LEADERS_MEETING_URL
 from .github.views import GitHubInviteView
-from .tasks import run_on_weekday
+from .tasks import run_on_weekday, run_yearly
 from .utils import is_active, make_and
 from .views import MILBotView
 
@@ -29,6 +29,12 @@ if TYPE_CHECKING:
 
 MEETING_TIME = datetime.time(17, 0, 0)
 MEETING_DAY = calendar.MONDAY
+
+# Workaround for calendar Month enum not being available in less than python3.12
+JANUARY = 1
+MARCH = 3
+JUNE = 6
+SEPTEMBER = 9
 
 
 class AwayView(MILBotView):
@@ -75,6 +81,10 @@ class Leaders(commands.Cog):
         self.pre_reminder.start(self)
         self.at_reminder.start(self)
         self.robotx_reminder.start(self)
+        self.demote_new_grads_fall.start(self)
+        self.demote_new_grads_spring.start(self)
+        self.new_grad_to_alumni_fall.start(self)
+        self.new_grad_to_alumni_spring.start(self)
         self.away_cooldown = {}
         self.protected_channel_names = [
             r"^.*leads$",
@@ -84,6 +94,31 @@ class Leaders(commands.Cog):
             r"^alumni$",
         ]
         self.perm_notify_lock = asyncio.Lock()
+
+    @run_yearly(MARCH, 1)
+    async def new_grad_to_alumni_fall(self):
+        await self.new_grad_to_alumni()
+
+    @run_yearly(SEPTEMBER, 1)
+    async def new_grad_to_alumni_spring(self):
+        await self.new_grad_to_alumni()
+
+    async def new_grad_to_alumni(self):
+        for new_grad in self.bot.new_grad_role.members:
+            await new_grad.remove_roles(self.bot.new_grad_role)
+
+    @run_yearly(JANUARY, 1)
+    async def demote_new_grads_fall(self):
+        await self.demote_new_grads()
+
+    @run_yearly(JUNE, 1)
+    async def demote_new_grads_spring(self):
+        await self.demote_new_grads()
+
+    async def demote_new_grads(self):
+        for member in self.bot.new_grad_role.members:
+            no_leads_roles = [r for r in member.roles if "Lead" not in r.name]
+            await member.edit(roles=no_leads_roles)
 
     @commands.command()
     @commands.has_any_role("Software Leadership")
