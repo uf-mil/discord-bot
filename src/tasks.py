@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import abc
 import asyncio
 import contextlib
 import datetime
@@ -43,11 +44,29 @@ def run_on_weekday(
     """
 
     def decorator(func: Callable[..., Coroutine[Any, Any, T]]):  # type: ignore
-        return RecurringTask(
+        return WeeklyTask(
             func,
             day,
             hour,
             minute,
+            shift,
+            check,
+        )
+
+    return decorator
+
+
+def run_yearly(
+    month: int,
+    day: int,
+    shift: datetime.timedelta | None = None,
+    check: Callable[[], bool | Awaitable[bool]] | None = None,
+):
+    def decorator(func: Callable[..., Coroutine[Any, Any, T]]):  # type: ignore
+        return YearlyTask(
+            func,
+            month,
+            day,
             shift,
             check,
         )
@@ -63,55 +82,18 @@ class RecurringTask:
     def __init__(
         self,
         func: Callable[..., Coroutine[Any, Any, T]],
-        day: int | list[int] | list[Day],
-        hour: int,
-        minute: int,
         shift: datetime.timedelta | None = None,
         check: Callable[[], bool | Awaitable[bool]] | None = None,
     ):
         self._func = func
-        self._day = day
-        self._hour = hour
-        self._minute = minute
         self._shift = shift
         self._check = check
         self._task = None
         self._args = None
 
-    def _dt_from_weekday(
-        self,
-        day: int | Day,
-        starting_point: datetime.datetime | None = None,
-    ) -> datetime.datetime:
-        now = starting_point if starting_point else datetime.datetime.now()
-        next_day = now + datetime.timedelta(
-            days=(day - now.weekday()) % 7,
-        )
-        dt = next_day.replace(
-            hour=self._hour,
-            minute=self._minute,
-            second=0,
-            microsecond=0,
-        )
-        # Add the shift to the datetime if one was requested
-        if self._shift:
-            dt += self._shift
-        # If the task was scheduled before the current time (likely because the
-        # weekday requested is today's weekday), then let's use next week
-        if now > dt:
-            dt += datetime.timedelta(days=7)
-        return dt
-
+    @abc.abstractmethod
     def next_time(self) -> datetime.datetime:
-        now = datetime.datetime.now()
-
-        # If multiple days, choose the next day
-        if isinstance(self._day, list):
-            actual_day = min(self._day, key=lambda d: self._dt_from_weekday(d) - now)
-        else:
-            actual_day = self._day
-
-        return self._dt_from_weekday(actual_day)
+        raise NotImplementedError
 
     def start(self, *args):
         self._args = args
@@ -128,7 +110,7 @@ class RecurringTask:
         # Run
         if self._check and not await maybe_coroutine(self._check):
             logger.info(
-                f"Skipping {self._func.__name__} until next week because check failed.",
+                f"Skipping {self._func.__name__} until next iteration because check failed.",
             )
             return
 
@@ -157,7 +139,101 @@ class RecurringTask:
             raise RuntimeError("Cannot schedule task without bot.")
 
     def __str__(self) -> str:
-        return f"RecurringTask({self._func.__name__}, {self._day}, {self._hour}, {self._minute}, {self._shift}, {self._check})"
+        return f"RecurringTask({self._func.__name__}, {self._shift}, {self._check})"
+
+    __repr__ = __str__
+
+
+class WeeklyTask(RecurringTask):
+
+    def __init__(
+        self,
+        func: Callable[..., Coroutine[Any, Any, T]],
+        day: int | list[int] | list[Day],
+        hour: int,
+        minute: int,
+        shift: datetime.timedelta | None = None,
+        check: Callable[[], bool | Awaitable[bool]] | None = None,
+    ):
+        self._day = day
+        self._hour = hour
+        self._minute = minute
+        super().__init__(func, shift, check)
+
+    def _dt_from_weekday(
+        self,
+        day: int | Day,
+        starting_point: datetime.datetime | None = None,
+    ) -> datetime.datetime:
+        now = starting_point if starting_point else datetime.datetime.now()
+        next_day = now + datetime.timedelta(
+            days=(day - now.weekday()) % 7,
+        )
+        dt = next_day.replace(
+            hour=self._hour,
+            minute=self._minute,
+            second=0,
+            microsecond=0,
+        )
+        # Add the shift to the datetime if one was requested
+        if self._shift:
+            dt += self._shift
+        # If the task was scheduled before the current time (likely because the
+        # weekday requested is today's weekday), then let's use next week
+        if now > dt:
+            dt += datetime.timedelta(days=7)
+        return dt
+
+    def next_time(self):
+        now = datetime.datetime.now()
+
+        # If multiple days, choose the next day
+        if isinstance(self._day, list):
+            actual_day = min(self._day, key=lambda d: self._dt_from_weekday(d) - now)
+        else:
+            actual_day = self._day
+
+        return self._dt_from_weekday(actual_day)
+
+    def __str__(self) -> str:
+        return f"WeeklyTask({self._func.__name__}, {self._day}, {self._hour}, {self._minute}, {self._shift}, {self._check})"
+
+    __repr__ = __str__
+
+
+class YearlyTask(RecurringTask):
+
+    def __init__(
+        self,
+        func: Callable[..., Coroutine[Any, Any, T]],
+        month: int,
+        day: int,
+        shift: datetime.timedelta | None = None,
+        check: Callable[[], bool | Awaitable[bool]] | None = None,
+    ):
+        self._month = month
+        self._day = day
+        super().__init__(func, shift, check)
+
+    def next_time(self):
+        now = datetime.datetime.now()
+        dt = datetime.datetime(
+            year=now.year,
+            month=self._month,
+            day=self._day,
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        if self._shift:
+            dt += self._shift
+        if now > dt:
+            dt = dt.replace(year=now.year + 1)
+        return dt
+
+    def __str__(self) -> str:
+        return f"YearlyTask({self._func.__name__}, {self._month}, {self._day}, {self._shift}, {self._check})"
 
     __repr__ = __str__
 
