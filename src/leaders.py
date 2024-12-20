@@ -91,7 +91,6 @@ class Leaders(commands.Cog):
             "^students-only$",
             "^.*-travel$",
             r"^.*-leadership$",
-            r"^alumni$",
         ]
         self.perm_notify_lock = asyncio.Lock()
 
@@ -492,22 +491,16 @@ class Leaders(commands.Cog):
                 after_members = after.members
                 removed_members = set(before_members) - set(after_members)
                 added_members = set(after_members) - set(before_members)
-                entry = [
-                    x
-                    async for x in after.guild.audit_logs(
-                        limit=2,
-                        after=discord.utils.utcnow() - datetime.timedelta(seconds=5),
-                    )
-                    if x.action
-                    in [
+                entry = await self.bot.fetch_audit_log_targeting(
+                    after.id,
+                    [
                         discord.AuditLogAction.channel_update,
                         discord.AuditLogAction.overwrite_update,
                         discord.AuditLogAction.overwrite_create,
                         discord.AuditLogAction.overwrite_delete,
-                    ]
-                    and x.target.id == after.id
-                ]
-                user = "A user" if not entry else entry[0].user.mention
+                    ],
+                )
+                user = "A user" if not entry else entry.user.mention
                 if removed_members:
                     removed_name_str = ", ".join(
                         f"**{member.display_name}**" for member in removed_members
@@ -539,19 +532,11 @@ class Leaders(commands.Cog):
         async with self.perm_notify_lock:
             after = await after.guild.fetch_member(after.id)
             await asyncio.sleep(1)
-            entry = [
-                x
-                async for x in after.guild.audit_logs(
-                    limit=1,
-                    after=discord.utils.utcnow() - datetime.timedelta(seconds=5),
-                )
-                if x.action
-                in [
-                    discord.AuditLogAction.member_role_update,
-                ]
-                and x.target.id == after.id
-            ]
-            user = "A user" if not entry else entry[0].user.mention
+            entry = await self.bot.fetch_audit_log_targeting(
+                after.id,
+                [discord.AuditLogAction.member_role_update],
+            )
+            user = "A user" if not entry else entry.user.mention
             important_channels = [
                 c
                 for c in before.guild.text_channels

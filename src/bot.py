@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
 import logging
 import logging.handlers
 import os
@@ -98,6 +99,7 @@ class MILBot(commands.Bot):
     leave_channel: discord.TextChannel
     general_channel: discord.TextChannel
     member_services_channel: discord.TextChannel
+    alumni_channel: discord.TextChannel
     errors_channel: discord.TextChannel
     software_github_channel: discord.TextChannel
     electrical_github_channel: discord.TextChannel
@@ -229,6 +231,26 @@ class MILBot(commands.Bot):
             member = await self.active_guild.fetch_member(user_id)
         return member
 
+    async def fetch_audit_log_targeting(
+        self,
+        target_id: int,
+        actions: list[discord.AuditLogAction],
+    ) -> discord.AuditLogEntry | None:
+        entry = [
+            x
+            async for x in self.active_guild.audit_logs(
+                limit=1,
+                after=discord.utils.utcnow() - datetime.timedelta(seconds=5),
+            )
+            if x.action
+            in [
+                discord.AuditLogAction.member_role_update,
+            ]
+            and x.target is not None
+            and x.target.id == target_id
+        ]
+        return entry[0] if entry else None
+
     async def setup_hook(self) -> None:
         # Load extensions
         extensions = (
@@ -299,6 +321,13 @@ class MILBot(commands.Bot):
         )
         assert isinstance(member_services_channel, discord.TextChannel)
         self.member_services_channel = member_services_channel
+
+        alumni_channel = discord.utils.get(
+            self.active_guild.text_channels,
+            name="alumni",
+        )
+        assert isinstance(alumni_channel, discord.TextChannel)
+        self.alumni_channel = alumni_channel
 
         leaders_channel = discord.utils.get(
             self.active_guild.text_channels,

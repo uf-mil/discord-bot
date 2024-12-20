@@ -139,6 +139,25 @@ class GroupCog(commands.Cog):
         view = SummerRolesView(self.bot)
         await ctx.send(embed=embed, view=view)
 
+    @commands.Cog.listener()
+    async def on_member_update(self, before: discord.Member, after: discord.Member):
+        # If a user is given @Alumni, send a message welcoming them to alumni channel
+        alumni_added = (
+            self.bot.alumni_role in after.roles
+            and self.bot.alumni_role not in before.roles
+        )
+        if not alumni_added:
+            return
+
+        entry = await self.bot.fetch_audit_log_targeting(
+            after.id,
+            [discord.AuditLogAction.role_update],
+        )
+        author = entry.user.mention if entry else "A user"
+        await self.bot.alumni_channel.send(
+            f"{author} gave {after.mention} the alumni role. Please welcome them to this channel! :wave:",
+        )
+
 
 async def setup(bot: MILBot):
     await bot.add_cog(GroupCog(bot))
