@@ -65,9 +65,40 @@ class Webhooks(commands.Cog):
         except ValueError:
             return 100000
 
-    def natural_wrap(self, text: str) -> str:
+    def format_github_body(self, text: str) -> str:
         # Wrap text to 1000 characters, or wherever is natural first (aka, the
         # first newline)
+
+        # Find all cross-references to issues (user/repo#number) and replace them with links
+        cross_issues = re.findall(r"([a-zA-Z0-9-_]+\/[a-zA-Z0-9-_]+)#([0-9]+)", text)
+        for cross_issue in cross_issues:
+            user_repo, number = cross_issue
+            text = text.replace(
+                f"{user_repo}#{number}",
+                f"[{user_repo}#{number}](<https://github.com/{user_repo}/issues/{number}>)",
+            )
+
+        # Find all cross-references to commits (user/repo@commit) and replace them with links
+        cross_commits = re.findall(
+            r"([a-zA-Z0-9-_]+\/[a-zA-Z0-9-_]+)@([0-9a-zA-Z]{7,})",
+            text,
+        )
+        for cross_commit in cross_commits:
+            user_repo, commit = cross_commit
+            text = text.replace(
+                f"{user_repo}@{commit}",
+                f"[{user_repo}@{commit}](<https://github.com/{user_repo}/commit/{commit}>)",
+            )
+
+        # Find all usernames and replace them with links
+        usernames = re.findall(r"(?:^|\s+)@[a-zA-Z0-9-_]+", text)
+        for username in usernames:
+            # [1:] to remove @
+            text = text.replace(
+                username.strip(),
+                f"[{username.strip()}](<https://github.com/{username.strip()[1:]}>)",
+            )
+
         if "\n" in text:
             split_index = min(
                 self.safe_index(text, "\n"),
@@ -172,7 +203,7 @@ class Webhooks(commands.Cog):
                         else gh["head_commit"]["author"]["name"]
                     )
                     by_statement = f" by {author}"
-                message = f"\"{self.natural_wrap(gh['head_commit']['message'])}\""
+                message = f"\"{self.format_github_body(gh['head_commit']['message'])}\""
                 await updates_channel.send(
                     f"{name} {pushed} a commit{by_statement} to {branch} in {repo} ({compare}): {message}",
                 )
@@ -182,7 +213,7 @@ class Webhooks(commands.Cog):
                 ellipsis = f"* ... _and {commit_count - 1} more commits_"
                 formatted_commits = []
                 for commit in gh["commits"]:
-                    message = f"* [`{commit['id'][:7]}`]({self.url(commit)}): \"{self.natural_wrap(commit['message'])[:100]}\""
+                    message = f"* [`{commit['id'][:7]}`]({self.url(commit)}): \"{self.format_github_body(commit['message'])[:100]}\""
                     if (
                         sum(len(line) + 1 for line in formatted_commits)
                         + len(message)
@@ -363,7 +394,7 @@ class Webhooks(commands.Cog):
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
         commit = f"[`{gh['comment']['commit_id'][:7]}`]({self.url(gh['comment'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
-        comment = f"\"{self.natural_wrap(gh['comment']['body'])}\""
+        comment = f"\"{self.format_github_body(gh['comment']['body'])}\""
         commented = f"[commented]({self.url(gh['comment'], html=True)})"
         updates_channel = self.updates_channel(gh["repository"])
         await updates_channel.send(
@@ -378,7 +409,7 @@ class Webhooks(commands.Cog):
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
         issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
-        comment = f"\"{self.natural_wrap(gh['comment']['body'])}\""
+        comment = f"\"{self.format_github_body(gh['comment']['body'])}\""
         commented = f"[commented]({self.url(gh['comment'], html=True)})"
         updates_channel = self.updates_channel(gh["repository"])
         await updates_channel.send(
@@ -532,7 +563,7 @@ class Webhooks(commands.Cog):
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
         issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
-        comment = f"\"{self.natural_wrap(gh['comment']['body'])}\""
+        comment = f"\"{self.format_github_body(gh['comment']['body'])}\""
         commented = f"[commented]({self.url(gh['comment'], html=True)})"
         updates_channel = self.updates_channel(gh["repository"])
         issue_title = f"\"{gh['issue']['title']}\""
