@@ -81,6 +81,8 @@ class Leaders(commands.Cog):
         self.pre_reminder.start(self)
         self.at_reminder.start(self)
         self.robotx_reminder.start(self)
+        self.remind_demote_new_grads_fall.start(self)
+        self.remind_demote_new_grads_spring.start(self)
         self.demote_new_grads_fall.start(self)
         self.demote_new_grads_spring.start(self)
         self.new_grad_to_alumni_fall.start(self)
@@ -110,14 +112,29 @@ class Leaders(commands.Cog):
     async def demote_new_grads_fall(self):
         await self.demote_new_grads()
 
+    @run_yearly(JANUARY, 1, shift=-datetime.timedelta(days=1))
+    async def remind_demote_new_grads_fall(self):
+        await self.notify_lead_removal()
+
     @run_yearly(JUNE, 1)
     async def demote_new_grads_spring(self):
         await self.demote_new_grads()
 
+    @run_yearly(JUNE, 1, shift=-datetime.timedelta(days=1))
+    async def remind_demote_new_grads_spring(self):
+        await self.notify_lead_removal()
+
     async def demote_new_grads(self):
         for member in self.bot.new_grad_role.members:
             no_leads_roles = [r for r in member.roles if "Lead" not in r.name]
-            await member.edit(roles=no_leads_roles)
+            await member.edit(roles=no_leads_roles, reason="Leader has graduated.")
+
+    async def notify_lead_removal(self):
+        demoting_members = [member.mention for member in self.bot.new_grad_role.members]
+        removal_time = datetime.datetime.now().astimezone() + datetime.timedelta(days=1)
+        await self.bot.leaders_channel.send(
+            f"🔔 Reminder: {make_and(demoting_members)} will be removed from leads channels {discord.utils.format_dt(removal_time, 'R')}.",
+        )
 
     @commands.command()
     @commands.has_any_role("Software Leadership")
@@ -550,16 +567,22 @@ class Leaders(commands.Cog):
                     roles_given_str = (
                         f"{{{', '.join(f'{role.name}' for role in roles_given)}}}"
                     )
+                    reason_statement = (
+                        f"(reason: {entry.reason})" if entry and entry.reason else ""
+                    )
                     await channel.send(
-                        f"{user} added **{after.display_name}** to this channel via giving them the {roles_given_str} roles. Welcome {after.mention}! :wave:",
+                        f"{user} added **{after.display_name}** to this channel via giving them the {roles_given_str} roles. Welcome {after.mention}! :wave: {reason_statement}",
                     )
                 elif not member_can_view_after and member_can_view_before:
                     roles_taken = set(before.roles) - set(after.roles)
                     roles_taken_str = (
                         f"{{{', '.join(f'{role.name}' for role in roles_taken)}}}"
                     )
+                    reason_statement = (
+                        f"(reason: {entry.reason})" if entry and entry.reason else ""
+                    )
                     await channel.send(
-                        f"{user} removed **{after.display_name}** from this channel via removing the {roles_taken_str} roles. Adios! :wave:",
+                        f"{user} removed **{after.display_name}** from this channel via removing the {roles_taken_str} roles. Adios! :wave: {reason_statement}",
                     )
 
 
