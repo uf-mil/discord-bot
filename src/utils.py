@@ -22,6 +22,13 @@ def make_and(iterable: Iterable) -> str:
     return f"{', '.join(iterable[:-1])}, and {iterable[-1]}"
 
 
+def surround(s: str, start: int, end: int, surround_with: str) -> str:
+    """
+    Surrounds a part of a string with some characters.
+    """
+    return s[:start] + surround_with + s[start:end] + surround_with + s[end:]
+
+
 def is_active() -> bool:
     """
     Whether the reports system is active.
