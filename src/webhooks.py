@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime
 import logging
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import discord
 from discord.ext import commands
@@ -20,6 +20,12 @@ logger = logging.getLogger(__name__)
 
 
 class Webhooks(commands.Cog):
+
+    SECURE_TEAM_NAMES: ClassVar[list[str]] = [
+        "autopushers",
+        "lead",
+    ]
+
     def __init__(self, bot: MILBot):
         self.bot = bot
         self.ipc = Server(
@@ -479,7 +485,7 @@ class Webhooks(commands.Cog):
         team = f"[{gh['team']['name']}]({self.url(gh['team'], html=True)})"
         org = f"[{gh['organization']['login']}]({self.url(gh['organization'])})"
         leaders_channel = self.leaders_channel(gh["organization"]["login"])
-        if "lead" in team.lower():
+        if any(team_name in team.lower() for team_name in self.SECURE_TEAM_NAMES):
             await leaders_channel.send(
                 f"{name} added {added} to {team} in {org}",
             )
@@ -495,7 +501,7 @@ class Webhooks(commands.Cog):
         team = f"[{gh['team']['name']}]({self.url(gh['team'], html=True)})"
         org = f"[{gh['organization']['login']}]({self.url(gh['organization'])})"
         leaders_channel = self.leaders_channel(gh["organization"]["login"])
-        if "lead" in team.lower():
+        if any(team_name in team.lower() for team_name in self.SECURE_TEAM_NAMES):
             await leaders_channel.send(
                 f"{name} removed {removed} from {team} in {org}",
             )
