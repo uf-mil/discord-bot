@@ -100,6 +100,15 @@ class Logger(commands.Cog):
         if not self._log_message_filter(message):
             return
 
+        if (
+            not message.embeds
+            and message_now.embeds
+            and message.content == message_now.content
+        ):
+            # if the message has an embed now (probably from a link),
+            # don't post an update just for the embed
+            return
+
         header = f"✏️ **{message.author.display_name}** edited a message in {channel.mention} ([jump!](<{message.jump_url}>)):"
         # if cached message isn't present, we can't figure out
         # what was there before
