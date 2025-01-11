@@ -7,6 +7,7 @@ import textwrap
 import traceback
 from typing import TYPE_CHECKING
 
+import discord
 from discord.ext import commands
 
 if TYPE_CHECKING:
@@ -37,6 +38,23 @@ class Admin(commands.Cog):
         )
         stdout, _ = await process.communicate()
         await ctx.send(f"hash: `{stdout.decode('utf-8').strip()}`")
+
+    @commands.command(name="clearrole")
+    @commands.has_role("Leaders")
+    async def clear_role(self, ctx: commands.Context, role_name: str):
+        role = discord.utils.get(self.bot.active_guild.roles, name=role_name)
+        if role is None:
+            await ctx.reply(f"Cannot find role: `{role_name}`")
+            return
+
+        names = [
+            f"* {member.display_name} (@{member.global_name})"
+            for member in role.members
+        ]
+        for member in role.members:
+            await member.remove_roles(role)
+        new_line_names = "\n".join(names)
+        await ctx.reply(f"Removed role `{role_name}` from:\n{new_line_names}")
 
     @commands.command(hidden=True, name="eval")
     @commands.is_owner()
