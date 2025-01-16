@@ -17,7 +17,7 @@ from discord.ext import commands
 from discord.utils import maybe_coroutine
 
 from .anonymous import AnonymousReportView
-from .env import LEADERS_MEETING_NOTES_URL, LEADERS_MEETING_URL
+from .env import LEADERS_MEETING_URL
 from .github.views import GitHubInviteView
 from .tasks import run_on_weekday, run_yearly
 from .utils import is_active, make_and
@@ -352,6 +352,35 @@ class Leaders(commands.Cog):
                 f"Good morning! There are **{days} days** (progress from start: {progress_ratio:.2%}) until we leave for competition! (estimated testings remaining: **{estimated_testings:.0f}**)\n{self._schedule_generator(FALL_START, EVENT_SUBMISSION, DESIGN_SUBMISSION, ROBOTX_START, ROBOTX_END)}",
             )
 
+    def _meeting_view(self, *, include_meeting_link: bool) -> MILBotView:
+        view = MILBotView()
+        if include_meeting_link:
+            view.add_item(
+                discord.ui.Button(label="Meeting Link", url=LEADERS_MEETING_URL),
+            )
+        buttons = [
+            discord.ui.Button(
+                label="Roadmap: uf-mil-leadership",
+                url="https://github.com/orgs/uf-mil-leadership/projects/4",
+                emoji="📈",
+            ),
+            discord.ui.Button(
+                label="Roadmap: uf-mil-mechanical",
+                url="https://github.com/orgs/uf-mil-mechanical/projects/13",
+                emoji="🔧",
+            ),
+            discord.ui.Button(
+                label="Roadmap: uf-mil-electrical",
+                emoji="🔋",
+                disabled=True,
+            ),
+            discord.ui.Button(label="Roadmap: uf-mil", emoji="🔌", disabled=True),
+        ]
+        for i, button in enumerate(buttons):
+            button.row = i + 1 if include_meeting_link else i
+            view.add_item(button)
+        return view
+
     @run_on_weekday(
         MEETING_DAY,
         MEETING_TIME.hour,
@@ -361,19 +390,16 @@ class Leaders(commands.Cog):
     )
     async def notes_reminder(self):
         meeting_time = datetime.datetime.combine(datetime.date.today(), MEETING_TIME)
+        today_tonight = "tonight" if datetime.time(17, 0, 0) < MEETING_TIME else "today"
         embed = discord.Embed(
-            title="🚨 Leaders Meeting Tonight!",
-            description=f"Don't forget to attend the leaders meeting tonight at {discord.utils.format_dt(meeting_time, 't')} today! To help the meeting proceed efficiently, **all leaders** from **each team** should fill out the meeting notes for tonight's meeting **ahead of the meeting time**. Please include:\n* What has been completed over the past week\n* Plans for this upcoming week\n* Challenges your team faces\n\nThank you! If you have any questions, please ping {self.bot.sys_leads_role.mention}.",
+            title=f"🚨 Leaders Meeting {today_tonight.title()}!",
+            description=f"Don't forget to attend the leaders meeting {today_tonight} at {discord.utils.format_dt(meeting_time, 't')}! To help the meeting proceed efficiently, **all leaders** from **each team** should review their team's roadmap for {today_tonight}'s meeting **ahead of the meeting time**. Thank you!",
             color=discord.Color.teal(),
-        )
-        view = MILBotView()
-        view.add_item(
-            discord.ui.Button(label="Meeting Notes", url=LEADERS_MEETING_NOTES_URL),
         )
         await self.bot.leaders_channel.send(
             f"{self.bot.leaders_role.mention}",
             embed=embed,
-            view=view,
+            view=self._meeting_view(include_meeting_link=False),
         )
 
     @run_on_weekday(
@@ -389,15 +415,10 @@ class Leaders(commands.Cog):
             description="Who's excited to meet?? 🙋 Please arrive on time so we can promptly begin the meeting. If you have not already filled out the meeting notes for your team, please do so **now**! Thank you so much!",
             color=discord.Color.brand_green(),
         )
-        view = MILBotView()
-        view.add_item(
-            discord.ui.Button(label="Meeting Notes", url=LEADERS_MEETING_NOTES_URL),
-        )
-        view.add_item(discord.ui.Button(label="Meeting Link", url=LEADERS_MEETING_URL))
         await self.bot.leaders_channel.send(
             f"{self.bot.leaders_role.mention}",
             embed=embed,
-            view=view,
+            view=self._meeting_view(include_meeting_link=True),
         )
 
     @run_on_weekday(
@@ -413,15 +434,10 @@ class Leaders(commands.Cog):
             description="It's time! The leaders meeting is starting now! Please join on time so we can begin the meeting promptly.",
             color=discord.Color.brand_red(),
         )
-        view = MILBotView()
-        view.add_item(
-            discord.ui.Button(label="Meeting Notes", url=LEADERS_MEETING_NOTES_URL),
-        )
-        view.add_item(discord.ui.Button(label="Meeting Link", url=LEADERS_MEETING_URL))
         await self.bot.leaders_channel.send(
             f"{self.bot.leaders_role.mention}",
             embed=embed,
-            view=view,
+            view=self._meeting_view(include_meeting_link=True),
         )
 
     def _away_cooldown_check(
