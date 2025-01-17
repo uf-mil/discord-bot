@@ -71,7 +71,7 @@ class Webhooks(commands.Cog):
         except ValueError:
             return 100000
 
-    def format_github_body(self, text: str) -> str:
+    async def format_github_body(self, text: str) -> str:
         # Wrap text to 1000 characters, or wherever is natural first (aka, the
         # first newline)
 
@@ -100,9 +100,10 @@ class Webhooks(commands.Cog):
         usernames = re.findall(r"(?:^|\s+)@[a-zA-Z0-9-_]+", text)
         for username in usernames:
             # [1:] to remove @
+            no_at = username.strip()[1:]
             text = text.replace(
                 username.strip(),
-                f"[{username.strip()}](<https://github.com/{username.strip()[1:]}>)",
+                f"[@{await self.real_name(no_at)}](<https://github.com/{no_at}>)",
             )
 
         if "\n" in text:
@@ -209,7 +210,9 @@ class Webhooks(commands.Cog):
                         else gh["head_commit"]["author"]["name"]
                     )
                     by_statement = f" by {author}"
-                message = f"\"{self.format_github_body(gh['head_commit']['message'])}\""
+                message = (
+                    f"\"{await self.format_github_body(gh['head_commit']['message'])}\""
+                )
                 await updates_channel.send(
                     f"{name} {pushed} a commit{by_statement} to {branch} in {repo} ({compare}): {message}",
                 )
@@ -219,7 +222,7 @@ class Webhooks(commands.Cog):
                 ellipsis = f"* ... _and {commit_count - 1} more commits_"
                 formatted_commits = []
                 for commit in gh["commits"]:
-                    message = f"* [`{commit['id'][:7]}`]({self.url(commit)}): \"{self.format_github_body(commit['message'])[:100]}\""
+                    message = f"* [`{commit['id'][:7]}`]({self.url(commit)}): \"{(await self.format_github_body(commit['message']))[:100]}\""
                     if (
                         sum(len(line) + 1 for line in formatted_commits)
                         + len(message)
@@ -400,7 +403,7 @@ class Webhooks(commands.Cog):
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
         commit = f"[`{gh['comment']['commit_id'][:7]}`]({self.url(gh['comment'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
-        comment = f"\"{self.format_github_body(gh['comment']['body'])}\""
+        comment = f"\"{await self.format_github_body(gh['comment']['body'])}\""
         commented = f"[commented]({self.url(gh['comment'], html=True)})"
         updates_channel = self.updates_channel(gh["repository"])
         await updates_channel.send(
@@ -415,7 +418,7 @@ class Webhooks(commands.Cog):
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
         issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
-        comment = f"\"{self.format_github_body(gh['comment']['body'])}\""
+        comment = f"\"{await self.format_github_body(gh['comment']['body'])}\""
         commented = f"[commented]({self.url(gh['comment'], html=True)})"
         updates_channel = self.updates_channel(gh["repository"])
         await updates_channel.send(
@@ -569,7 +572,7 @@ class Webhooks(commands.Cog):
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
         issue = f"[#{gh['issue']['number']}]({self.url(gh['issue'], html=True)})"
         repo = f"[{gh['repository']['full_name']}]({self.url(gh['repository'], html=True)})"
-        comment = f"\"{self.format_github_body(gh['comment']['body'])}\""
+        comment = f"\"{await self.format_github_body(gh['comment']['body'])}\""
         commented = f"[commented]({self.url(gh['comment'], html=True)})"
         updates_channel = self.updates_channel(gh["repository"])
         issue_title = f"\"{gh['issue']['title']}\""
