@@ -12,7 +12,7 @@ SEMESTERS = [
     # vv Real end date is 12/4, but is 11/24 b/c of RobotX
     (datetime.date(2024, 9, 2), datetime.date(2024, 11, 24)),
     # vv Real start date is 1/13, but it is 1/20 for the first report week
-    (datetime.date(2025, 1, 20), datetime.date(2024, 4, 27)),
+    (datetime.date(2025, 1, 27), datetime.date(2024, 4, 27)),
 ]
 SCHWARTZ_EMAIL = "ems@ufl.edu"
 
