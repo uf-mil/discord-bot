@@ -245,7 +245,9 @@ class Leaders(commands.Cog):
             return
         members: list[discord.Member] = []
         for member in self.bot.active_guild.members:
-            if name.lower() in member.display_name.lower():
+            if name.lower() in member.display_name.lower() or (
+                member.global_name and name.lower() in member.global_name.lower()
+            ):
                 members.append(member)
         if not members:
             await ctx.reply("No members found.")

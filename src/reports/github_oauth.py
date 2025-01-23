@@ -60,11 +60,18 @@ class OauthSetupButton(discord.ui.Button):
         if needs_new_headshot:
             if not interaction.user.dm_channel:
                 await interaction.user.create_dm()
+            dms_open = True
+            try:
+                await interaction.user.send(
+                    "Feel free to send me a new headshot here! Just the image is fine.",
+                )
+            except discord.Forbidden:
+                dms_open = False
             text = (
                 "Let's get your GitHub connected! First, please **message me** a headshot of your face. This will be associated your account for when team leaders review your work for the previous week. For best results, please use a **square** (or roughly square) photo."
                 + (
                     f" [You can click here to message me!]({interaction.user.dm_channel.jump_url})"
-                    if interaction.user.dm_channel
+                    if interaction.user.dm_channel and dms_open
                     else ""
                 )
             )
