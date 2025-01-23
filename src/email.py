@@ -77,14 +77,3 @@ class Email:
             message.as_string(),
         )
         await smtp_server.quit()
-
-
-async def send_email(receiver_email, subject, html, text) -> bool:
-    email = Email(
-        receiver_emails=[receiver_email],
-        subject=subject,
-        html=html,
-        text=text,
-    )
-    await email.send()
-    return True

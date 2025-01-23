@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 import discord
 
-from .email import send_email
+from .constants import SCHWARTZ_EMAIL
+from .email import Email
 from .views import MILBotModal, MILBotView
 
 if TYPE_CHECKING:
@@ -12,6 +14,27 @@ if TYPE_CHECKING:
 
 
 IntendedTargets = Literal["schwartz", "operations", "leaders"]
+
+
+@dataclass
+class SchwartzAnonymousEmail(Email):
+    def __init__(self, report: str):
+        html = f"""A new anonymous report has been submitted. The report is as follows:
+
+        <blockquote>{report}</blockquote>
+
+        Replies to this email will not be received. Please address any concerns with the appropriate leadership team."""
+        text = f"""A new anonymous report has been submitted. The report is as follows:
+
+        {report}
+
+        Replies to this email will not be received. Please address any concerns with the appropriate leadership team."""
+        super().__init__(
+            receiver_emails=[SCHWARTZ_EMAIL],
+            subject="New Anonymous Report Received",
+            html=html,
+            text=text,
+        )
 
 
 class AnonymousReportModal(MILBotModal):
@@ -36,22 +59,7 @@ class AnonymousReportModal(MILBotModal):
         )
         embed.set_footer(text="Submitted by an anonymous user")
         if self.target == "schwartz":
-            html = f"""A new anonymous report has been submitted. The report is as follows:
-
-            <blockquote>{self.report.value}</blockquote>
-
-            Replies to this email will not be received. Please address any concerns with the appropriate leadership team."""
-            text = f"""A new anonymous report has been submitted. The report is as follows:
-
-            {self.report.value}
-
-            Replies to this email will not be received. Please address any concerns with the appropriate leadership team."""
-            await send_email(
-                "ems@ufl.edu",
-                "New Anonymous Report Received",
-                html,
-                text,
-            )
+            await SchwartzAnonymousEmail(self.report.value).send()
         elif self.target == "operations":
             await self.bot.operations_leaders_channel.send(embed=embed)
         elif self.target == "leaders":

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import discord
 
-from .email import send_email
+from .email import Email
 from .roles import TeamRolesView
 from .views import MILBotModal, MILBotView
 
@@ -24,6 +24,36 @@ class VerificationCandidate:
     email: str
     member: discord.Member
     code: int
+
+
+@dataclass
+class VerificationEmail(Email):
+    def _generate_message(self, code: int) -> tuple[str, str]:
+        return (
+            f"""
+            <html>
+                <head></head>
+                <body>
+                    Welcome to the Machine Intelligence Laboratory Discord server!<br><br>
+                    Your verification code is: <b>{code}</b><br><br>
+                    Thanks,<br>Machine Intelligence Laboratory
+            </html>
+        """,
+            f"""Welcome to the Machine Intelligence Laboratory Discord server!
+    Your verification code is: {code}
+    Thanks,
+    Machine Intelligence Laboratory
+    """,
+        )
+
+    def __init__(self, email: str, code: int):
+        html, text = self._generate_message(code)
+        super().__init__(
+            receiver_emails=[email],
+            subject="MIL Discord Verification Code",
+            html=html,
+            text=text,
+        )
 
 
 class Verifier:
@@ -49,30 +79,8 @@ class Verifier:
         """
         Sends a verification email to the candidate.
         """
-        messages = self._generate_message(candidate.code)
-        await send_email(
-            candidate.email,
-            "MIL Discord Verification Code",
-            *messages,
-        )
-
-    def _generate_message(self, code: int) -> tuple[str, str]:
-        return (
-            f"""
-            <html>
-                <head></head>
-                <body>
-                    Welcome to the Machine Intelligence Laboratory Discord server!<br><br>
-                    Your verification code is: <b>{code}</b><br><br>
-                    Thanks,<br>Machine Intelligence Laboratory
-            </html>
-        """,
-            f"""Welcome to the Machine Intelligence Laboratory Discord server!
-    Your verification code is: {code}
-    Thanks,
-    Machine Intelligence Laboratory
-    """,
-        )
+        email = VerificationEmail(candidate.email, candidate.code)
+        await email.send()
 
 
 class VerificationCodeModal(MILBotModal):
