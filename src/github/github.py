@@ -118,6 +118,33 @@ class GitHub:
         url = f"https://api.github.com/repos/{repo_name}/commits/{hash}/branches-where-head"
         return await self.fetch(url)
 
+    async def pvti_team_name(self, node_id: str) -> str | None:
+        """
+        Returns the team name for a PVTI node id.
+        """
+        query = f"""
+        {{
+          node(id: \"{node_id}\") {{
+            ... on ProjectV2Item {{
+              fieldValueByName(name: "Team") {{
+                ... on ProjectV2ItemFieldSingleSelectValue {{
+                  name
+                }}
+              }}
+            }}
+          }}
+        }}
+        """
+        properties = await self.fetch(
+            "https://api.github.com/graphql",
+            method="POST",
+            data=json.dumps({"query": query}),
+        )
+        field_value_by_name = properties["data"]["node"]["fieldValueByName"]
+        if not field_value_by_name:
+            return None
+        return field_value_by_name["name"]
+
     async def pvt_title_url_org(self, id: str) -> tuple[str, str, str]:
         """
         Title and URL for a PVT node id.

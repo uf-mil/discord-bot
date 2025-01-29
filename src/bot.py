@@ -8,6 +8,7 @@ import os
 import random
 import traceback
 from io import BytesIO
+from typing import Literal
 
 import aiohttp
 import discord
@@ -519,6 +520,18 @@ class MILBot(commands.Bot):
         ch = discord.utils.get(
             self.active_guild.text_channels,
             name=f"{team.name.lower()}-leadership",
+        )
+        if not ch:
+            raise ResourceNotFound("Channel not found.")
+        return ch
+
+    def leads_project_channel(
+        self,
+        name: Literal["sub9", "navigator", "drone"],
+    ) -> discord.TextChannel:
+        ch = discord.utils.get(
+            self.active_guild.text_channels,
+            name=f"{name}-leads",
         )
         if not ch:
             raise ResourceNotFound("Channel not found.")

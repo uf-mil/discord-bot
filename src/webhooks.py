@@ -6,7 +6,7 @@ import logging
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 import discord
 from discord.ext import commands
@@ -830,13 +830,22 @@ class ProjectsV2ItemEdited(WebhookResponse):
         return f"post_project_item_{self.node_id}"
 
     async def ignore(self) -> bool:
+        self.team_name = await self.bot.github.pvti_team_name(self.node_id)
         return (
             self.github_data["changes"]["field_value"]["field_name"] != "End date"
             or self.orig_date == self.to_dt
         )
 
     def targets(self) -> list[discord.TextChannel]:
-        return [self.updates_channel(self.github_data["organization"]["login"])]
+        channels = [self.updates_channel(self.github_data["organization"]["login"])]
+        if self.team_name:
+            mappings: dict[str, Literal["sub9", "navigator", "drone"]] = {
+                "SubjuGator": "sub9",
+                "NaviGator": "navigator",
+                "Drone": "drone",
+            }
+            channels.append(self.bot.leads_project_channel(mappings[self.team_name]))
+        return channels
 
     def after_send(self) -> None:
         self._project_v2_item_change_dates.pop(self.node_id)
@@ -1029,6 +1038,8 @@ class Webhooks(commands.Cog):
             wh = response_type(payload.github_data, self.bot)
 
             async def _post_coro():
+                if await wh.ignore():
+                    return
                 for channel in wh.targets():
                     await channel.send(await wh.message())
                 wh.after_send()
