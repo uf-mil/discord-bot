@@ -36,6 +36,11 @@ class WebhookResponse:
     # so that we can compare it to the new date and send a message
     _project_v2_item_change_dates: ClassVar[dict[str, datetime.datetime | None]] = {}
 
+    SECURE_TEAM_NAMES: ClassVar[list[str]] = [
+        "lead",
+        "autopushers",
+    ]
+
     @property
     def concurrency_id(self) -> str:
         return self.bot.tasks.unique_id()
@@ -169,7 +174,7 @@ class WebhookResponse:
         ]
 
     async def ignore(self) -> bool:
-        raise False
+        return False
 
     @abc.abstractmethod
     def targets(self) -> list[discord.TextChannel]:
@@ -860,7 +865,7 @@ class ProjectsV2ItemEdited(WebhookResponse):
 
         # Ensure that the end date was updated
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
-        proj_title, proj_url, proj_org = await self.bot.github.pvt_title_url_org(
+        proj_title, proj_url, _ = await self.bot.github.pvt_title_url_org(
             gh["projects_v2_item"]["project_node_id"],
         )
         project = f"[{proj_title}](<{proj_url}>)"
@@ -1012,7 +1017,6 @@ class ProjectsV2Deleted(WebhookResponse):
 
 
 class Webhooks(commands.Cog):
-
     def __init__(self, bot: MILBot):
         self.bot = bot
         self.ipc = Server(
