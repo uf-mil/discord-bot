@@ -93,7 +93,11 @@ class Logger(commands.Cog):
             )
             return
 
-        message_now = await channel.fetch_message(payload.message_id)  # type: ignore
+        try:
+            message_now = await channel.fetch_message(payload.message_id)  # type: ignore
+        except discord.NotFound:
+            # NotFound likely means an ephemeral message
+            return
         if not message:
             message = message_now
 
