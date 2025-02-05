@@ -247,6 +247,7 @@ class StartReviewView(MILBotView):
             "**Issues Opened**:": "📥",
             "**Pull Requests Opened**:": "📤",
             "**Comments**:": "💬",
+            "**Wiki Contributions**:": "📖",
         }
         for field in included_fields:
             if not field:

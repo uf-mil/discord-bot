@@ -92,6 +92,13 @@ class ReportsCog(commands.Cog):
         )
         return f"* {format_dt} {payload['repository']['nameWithOwner']} @ {payload['oid'][:8]} ({no_newline_message})"
 
+    def _format_wiki_contrib(self, payload: dict) -> str:
+        format_dt = discord.utils.format_dt(
+            datetime.datetime.fromisoformat(payload["timestamp"]),
+            "F",
+        )
+        return f"* {format_dt}: {payload['title']} ({payload['sizediff']} bytes)"
+
     async def refresh_sheet(self, previous_week: bool = False) -> None:
         main_worksheet = await self.bot.sh.get_worksheet(0)
         cur_semester = semester_given_date(datetime.datetime.now())
@@ -162,6 +169,26 @@ class ReportsCog(commands.Cog):
                         self._format_commit_str(payload)
                         for payload in contributions.commits
                     ]
+                wiki_contributions = await self.bot.wiki.get_user_contributions(
+                    discord_member.display_name,
+                    start=previous_monday_midnight,
+                )
+                if wiki_contributions:
+                    total_bytes = sum(
+                        abs(int(payload["sizediff"]))
+                        for payload in wiki_contributions
+                        if payload["sizediff"]
+                    )
+                    most_valuable_contributions = sorted(
+                        wiki_contributions,
+                        key=lambda x: abs(int(x["sizediff"])),
+                        reverse=True,
+                    )[:5]
+                    if total_bytes > 750:
+                        summaries["Wiki Contributions"] = [
+                            self._format_wiki_contrib(payload)
+                            for payload in most_valuable_contributions
+                        ]
                 if is_electrical_member:
                     try:
                         commits = await self.bot.github.commits_across_branches(token)
@@ -425,7 +452,7 @@ class ReportsCog(commands.Cog):
         )
         embed.add_field(
             name="📍 __What is a Contribution?__",
-            value="Contributions include any activity on your team's task tracker. This includes:\n* Opening issues\n* Writing comments on issues\n* Creating pull requests\n* Creating commits on the default branch\nIf you have more questions about how your activity will be assessed, don't hesitate to ask your team lead.",
+            value="Contributions include any activity on your team's task tracker or the MIL Wiki. This includes:\n* Opening issues\n* Writing comments on issues\n* Creating pull requests\n* Creating commits on the default branch\n* Adding 750 bytes of content (~150-200 words) to the MIL Wiki\nIf you have more questions about how your activity will be assessed, don't hesitate to ask your team lead.",
             inline=False,
         )
         embed.add_field(
