@@ -49,6 +49,7 @@ from .tasks import TaskManager
 from .testing import TestingSignUpView
 from .verification import Verifier
 from .welcome import WelcomeView
+from .wiki import MILWiki
 
 
 def get_creds():
@@ -162,6 +163,8 @@ class MILBot(commands.Bot):
             await conn.run_sync(Base.metadata.create_all)
         self.db_factory = DatabaseFactory(bot=self, engine=engine)
         await self.fetch_vars()
+        self.wiki = MILWiki(self)
+        await self.wiki.login()
 
     async def close(self):
         await self.session.close()
