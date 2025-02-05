@@ -403,7 +403,7 @@ class MILBot(commands.Bot):
 
         el_github_updates_channel = discord.utils.get(
             self.active_guild.text_channels,
-            name="github-wiki-updates",
+            name="github-updates",
             category=self.software_category_channel,
         )
         assert isinstance(el_github_updates_channel, discord.TextChannel)
@@ -427,7 +427,7 @@ class MILBot(commands.Bot):
 
         leads_github_updates_channel = discord.utils.get(
             self.active_guild.text_channels,
-            name="github-updates",
+            name="github-wiki-updates",
             category=self.leads_category_channel,
         )
         assert isinstance(leads_github_updates_channel, discord.TextChannel)
