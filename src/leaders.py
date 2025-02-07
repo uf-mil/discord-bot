@@ -374,9 +374,13 @@ class Leaders(commands.Cog):
             discord.ui.Button(
                 label="Roadmap: uf-mil-electrical",
                 emoji="🔋",
-                disabled=True,
+                url="https://github.com/orgs/uf-mil-electrical/projects/18/views/2",
             ),
-            discord.ui.Button(label="Roadmap: uf-mil", emoji="🔌", disabled=True),
+            discord.ui.Button(
+                label="Roadmap: uf-mil (software)",
+                emoji="💻",
+                url="https://github.com/orgs/uf-mil/projects/22",
+            ),
         ]
         for i, button in enumerate(buttons):
             button.row = i + 1 if include_meeting_link else i
