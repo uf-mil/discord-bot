@@ -305,6 +305,8 @@ class StartReviewView(MILBotView):
             f"{self.bot.loading_emoji} Thanks for starting this review! Pulling data...",
             ephemeral=True,
         )
+        async with self.bot.db_factory() as db:
+            connected_ids = [m.discord_id for m in await db.authenticated_members()]
         if not interaction.channel or isinstance(
             interaction.channel,
             discord.DMChannel,
@@ -338,12 +340,13 @@ class StartReviewView(MILBotView):
                     if student.report
                     else (None, None)
                 )
+                message = f"Please grade the report by **{student.name}**:"
+                if not student.report:
+                    message = f"❌ **{student.name}** did not complete any activity last week."
+                if student.discord_id not in connected_ids:
+                    message = f"🚨 **{student.name}** has not connected their GitHub with the bot. Please reach out to them."
                 await interaction.edit_original_response(
-                    content=(
-                        f"Please grade the report by **{student.name}**:"
-                        if student.report
-                        else f"❌ **{student.name}** did not complete any activity last week."
-                    ),
+                    content=message,
                     view=view,
                     embed=embed,
                     attachments=[file] if file else [],
