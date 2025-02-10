@@ -170,7 +170,7 @@ class ReportsCog(commands.Cog):
                         for payload in contributions.commits
                     ]
                 wiki_contributions = await self.bot.wiki.get_user_contributions(
-                    discord_member.display_name,
+                    discord_member.display_name.title(),
                     start=previous_monday_midnight,
                 )
                 if wiki_contributions:
@@ -205,6 +205,9 @@ class ReportsCog(commands.Cog):
                     f"**{k}**:\n" + "\n".join(v) for k, v in summaries.items()
                 )
                 id_cell = await main_worksheet.find(discord_member.name)
+                if id_cell is None:
+                    logger.info(f"Could not find cell for {discord_member.name}.")
+                    continue
                 a1_notation = gspread.utils.rowcol_to_a1(id_cell.row, week.report_column)  # type: ignore
                 summary_str = summary_str.strip()
                 # Just in case, google sheets cells are limited to 50,000 characters
