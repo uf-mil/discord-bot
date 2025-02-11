@@ -127,7 +127,7 @@ class ReportHistoryButton(discord.ui.Button):
                 )
             embed.add_field(
                 name=header,
-                value=capped_report,
+                value=capped_report[:1024],
                 inline=False,
             )
             column.report_column += 2
