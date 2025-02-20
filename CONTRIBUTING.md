@@ -63,6 +63,9 @@ GITHUB_TOKEN=           # github token
 MEETING_NOTES_URL=      # leaders notes URL (can be any URL for testing purposes)
 MEETING_URL=            # leaders meeting URL (can be any URL for testing purposes)
 
+# Stores information about the bot and its processes
+DATABASE_ENGINE_URL=sqlite+aiosqlite:///bot.db
+
 # These are optional and do not need to be added:
 GENERAL_CALENDAR=
 SOFTWARE_MEETINGS_CALENDAR=

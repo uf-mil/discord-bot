@@ -8,3 +8,5 @@ better-ipc==2.0.3
 sqlalchemy==2.0.22
 aiosqlite==0.20.0
 gspread-asyncio==1.9.0
+rich==13.7.1
+python-dotenv==0.19.1
