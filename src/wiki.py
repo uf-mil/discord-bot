@@ -93,4 +93,9 @@ class MILWiki:
             if not response.ok:
                 logger.error(f"Failed to get user contributions for {username}")
             response.raise_for_status()
-            return (await response.json())["query"]["usercontribs"]
+            json_data = await response.json()
+            if "query" in json_data:
+                return json_data["query"]["usercontribs"]
+            else:
+                logger.error(f"Unexpected usercontribs API response: {json_data}")
+            return []
