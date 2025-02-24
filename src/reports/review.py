@@ -33,10 +33,17 @@ class ReportReviewButton(discord.ui.Button):
         label: str | None = None,
         emoji: str | None = None,
         row: int | None = None,
+        disabled: bool = False,
     ):
         self.bot = bot
         self.student = student
-        super().__init__(style=style, label=label, emoji=emoji, row=row)
+        super().__init__(
+            style=style,
+            label=label,
+            emoji=emoji,
+            row=row,
+            disabled=disabled,
+        )
 
     async def respond_early(self, interaction: discord.Interaction, content: str):
         assert self.view is not None
@@ -140,7 +147,7 @@ class WarningReportButton(ReportReviewButton):
 
 
 class GoodReportButton(ReportReviewButton):
-    def __init__(self, bot: MILBot, student: Student):
+    def __init__(self, bot: MILBot, student: Student, disabled: bool = False):
         self.bot = bot
         self.student = student
         green_label = f"~{student.hours_commitment}+ hours of effort"
@@ -151,6 +158,7 @@ class GoodReportButton(ReportReviewButton):
             emoji="✅",
             style=discord.ButtonStyle.green,
             row=2,
+            disabled=disabled,
         )
 
     async def callback(self, interaction: discord.Interaction):
@@ -195,7 +203,7 @@ class ReportsReviewView(MILBotView):
         super().__init__()
         self.add_item(NegativeReportButton(bot, student))
         self.add_item(WarningReportButton(bot, student))
-        self.add_item(GoodReportButton(bot, student))
+        self.add_item(GoodReportButton(bot, student, disabled=not self.student.report))
         self.add_item(SkipReportButton(bot, student))
 
 
@@ -343,7 +351,10 @@ class StartReviewView(MILBotView):
                 message = f"Please grade the report by **{student.name}**:"
                 if not student.report:
                     message = f"❌ **{student.name}** did not complete any activity last week."
-                if student.discord_id not in connected_ids:
+                if student.member.id not in connected_ids:
+                    logger.warn(
+                        f"{student.name} is not in list of connected GitHub IDs: {student.member.id} not in {connected_ids[:100]} (len: {len(connected_ids)})",
+                    )
                     message = f"🚨 **{student.name}** has not connected their GitHub with the bot. Please reach out to them."
                 await interaction.edit_original_response(
                     content=message,
