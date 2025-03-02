@@ -36,6 +36,7 @@ class ReportsCog(commands.Cog):
         self.update_report_channel.start(self)
         self.regular_refresh.start()
         self.final_refresh.start(self)
+        self.send_missing_grade_message.start(self)
 
     @run_on_weekday(calendar.FRIDAY, 12, 0, check=is_active)
     async def post_reminder(self):
@@ -300,8 +301,12 @@ class ReportsCog(commands.Cog):
         res.sort(key=lambda s: s.first_name)
         return res
 
-    async def members_without_report(self) -> list[Student]:
-        week = WeekColumn.current()
+    async def members_without_report(
+        self,
+        week: WeekColumn | None = None,
+    ) -> list[Student]:
+        if not week:
+            week = WeekColumn.current()
         await self.refresh_sheet()
         students = await self.students_status(week.report_column)
         return [student for student in students if not student.report]
@@ -373,6 +378,18 @@ class ReportsCog(commands.Cog):
                     logger.info(
                         f"Could not send second individual report reminder to {student.member}.",
                     )
+
+    @run_on_weekday(calendar.MONDAY, 0, 0, check=is_active)
+    async def send_missing_grade_message(self):
+        students = await self.members_without_report(week=WeekColumn.previous())
+        for team in Team:
+            team_students = [
+                s for s in students if s.report_score is None and s.team == team
+            ]
+            if not len(team_students):
+                continue
+            message = f"⚠️ {len(team_students)} students from {team!s} were not graded last week, and the grading deadline has passed. Grades must be assigned externally (in Sheets)."
+            await self.bot.leaders_channel.send(message)
 
     @run_on_weekday(calendar.MONDAY, 0, 0, check=is_active)
     async def last_week_summary(self):
