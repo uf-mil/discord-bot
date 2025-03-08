@@ -203,7 +203,14 @@ class ReportsReviewView(MILBotView):
         super().__init__()
         self.add_item(NegativeReportButton(bot, student))
         self.add_item(WarningReportButton(bot, student))
-        self.add_item(GoodReportButton(bot, student, disabled=not self.student.report))
+        self.add_item(
+            GoodReportButton(
+                bot,
+                student,
+                disabled=not self.student.report
+                and self.student.team != Team.ELECTRICAL,
+            ),
+        )
         self.add_item(SkipReportButton(bot, student))
 
 
@@ -351,7 +358,7 @@ class StartReviewView(MILBotView):
                 message = f"Please grade the report by **{student.name}**:"
                 if not student.report:
                     message = f"❌ **{student.name}** did not complete any activity last week."
-                if student.member.id not in connected_ids:
+                if student.member and student.member.id not in connected_ids:
                     logger.warn(
                         f"{student.name} is not in list of connected GitHub IDs: {student.member.id} not in {connected_ids[:100]} (len: {len(connected_ids)})",
                     )
