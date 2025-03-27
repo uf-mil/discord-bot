@@ -520,6 +520,8 @@ class MILBot(commands.Bot):
         self._setup.set()
 
     def team_leads_ch(self, team: Team) -> discord.TextChannel:
+        if team == Team.GENERAL:
+            return self.leaders_channel
         ch = discord.utils.get(
             self.active_guild.text_channels,
             name=f"{team.name.lower()}-leadership",
