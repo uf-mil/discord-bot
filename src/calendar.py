@@ -17,6 +17,7 @@ from .env import (
     ELECTRICAL_MEETINGS_CALENDAR,
     ELECTRICAL_OH_CALENDAR,
     GENERAL_CALENDAR,
+    LEADERS_CALENDAR,
     MECHANICAL_MEETINGS_CALENDAR,
     MECHANICAL_OH_CALENDAR,
     SOFTWARE_MEETINGS_CALENDAR,
@@ -77,7 +78,7 @@ class Event:
     @classmethod
     def from_ical_event(cls, event: icalendar.Event, team: Team):
         # Make sure to parse vText too
-        type, title = cls.get_type(event.get("summary").to_ical().decode("utf-8"))
+        event_type, title = cls.get_type(event.get("summary").to_ical().decode("utf-8"))
         return cls(
             title=title,
             start=event.get("dtstart").dt,
@@ -87,13 +88,22 @@ class Event:
                 if event.get("location")
                 else ""
             ),
-            type=type,
+            type=event_type,
             team=team,
         )
 
     @property
     def sanitized_location(self) -> str:
         return self.location.replace("\\n", ", ")
+
+    # Herustic for finding recurring events
+    def recurs_with(self, event: Event) -> bool:
+        return (
+            self.title == event.title
+            and self.location == event.location
+            and self.type == event.type
+            and self.team == event.team
+        )
 
     def at_mil(self) -> bool:
         return self.location in ("", "MALA 3001")
@@ -111,9 +121,14 @@ class Event:
         return res
 
 
+@dataclass
 class OutlookCalendar:
-    def __init__(self, url: str):
-        self.url = url
+    url: str
+    name: str
+    protected: bool = False
+
+    def __hash__(self):
+        return hash(self.url) ^ hash(self.name)
 
     @property
     def ics_url(self) -> str:
@@ -184,33 +199,235 @@ class Calendar(commands.Cog):
 
     OPEN_HOURS = (datetime.time(9, 0), datetime.time(18, 0))
     calendars: dict[OutlookCalendar, Team]
+    calendar_stores: dict[OutlookCalendar, list[Event] | None]
 
     def __init__(self, bot: MILBot):
         self.bot = bot
         self.calendars = {
-            OutlookCalendar(GENERAL_CALENDAR): Team.GENERAL,
-            OutlookCalendar(SOFTWARE_MEETINGS_CALENDAR): Team.SOFTWARE,
-            OutlookCalendar(SOFTWARE_OH_CALENDAR): Team.SOFTWARE,
-            OutlookCalendar(MECHANICAL_MEETINGS_CALENDAR): Team.MECHANICAL,
-            OutlookCalendar(MECHANICAL_OH_CALENDAR): Team.MECHANICAL,
-            OutlookCalendar(ELECTRICAL_MEETINGS_CALENDAR): Team.ELECTRICAL,
-            OutlookCalendar(ELECTRICAL_OH_CALENDAR): Team.ELECTRICAL,
+            OutlookCalendar(str(GENERAL_CALENDAR), "General"): Team.GENERAL,
+            OutlookCalendar(
+                str(SOFTWARE_MEETINGS_CALENDAR),
+                "Software Meetings",
+            ): Team.SOFTWARE,
+            OutlookCalendar(
+                str(SOFTWARE_OH_CALENDAR),
+                "Software Office Hours",
+            ): Team.SOFTWARE,
+            OutlookCalendar(
+                str(MECHANICAL_MEETINGS_CALENDAR),
+                "Mechanical Meetings",
+            ): Team.MECHANICAL,
+            OutlookCalendar(
+                str(MECHANICAL_OH_CALENDAR),
+                "Mechanical Office Hours",
+            ): Team.MECHANICAL,
+            OutlookCalendar(
+                str(ELECTRICAL_MEETINGS_CALENDAR),
+                "Electrical Meetings",
+            ): Team.ELECTRICAL,
+            OutlookCalendar(
+                str(ELECTRICAL_OH_CALENDAR),
+                "Electrical Office Hours",
+            ): Team.ELECTRICAL,
+            OutlookCalendar(
+                str(LEADERS_CALENDAR),
+                "Leaders",
+                protected=True,
+            ): Team.GENERAL,
         }
+        self.calendar_stores = {}
+        for calendar in self.calendars:
+            self.calendar_stores[calendar] = None
         self.calendar.start()
 
-    async def load_calendar(self, url: str, team: Team) -> list[Event]:
-        if not url:
+    async def load_calendar(self, calendar: OutlookCalendar, team: Team) -> list[Event]:
+        if not calendar.url:
             logger.warn("Calendar URL is empty, not loading this calendar.")
             return []
-        response = await self.bot.session.get(url)
-        self.ics = icalendar.Calendar.from_ical(await response.read())
+        response = await self.bot.session.get(calendar.ics_url)
+        ics = icalendar.Calendar.from_ical(await response.read())
         today = datetime.date.today()
-        end_of_week = today + datetime.timedelta(days=5)
-        events = recurring_ical_events.of(self.ics).between(today, end_of_week)
-        cal_events = []
+        end_date = today + datetime.timedelta(days=90)
+        events = recurring_ical_events.of(ics).between(today, end_date)
+        cal_events: list[Event] = []
         for event in events:
             cal_events.append(Event.from_ical_event(event, team))
+
+        # If we haven't stored the events yet, we can't check for changes, so
+        # let's just store the events and return
+        if not self.calendar_stores[calendar]:
+            self.calendar_stores[calendar] = cal_events
+            return cal_events
+
+        # otherwise, check if we need to emit events
+        store = self.calendar_stores[calendar]
+        if store is not None:
+            new_events = [
+                event
+                for event in cal_events
+                if event not in self.calendar_stores[calendar]
+            ]
+            i = 1
+            while i < len(new_events):
+                if new_events[i].recurs_with(new_events[i - 1]):
+                    del new_events[i]
+                else:
+                    i += 1
+            removed_events = [event for event in store if event not in cal_events]
+            i = 1
+            while i < len(removed_events):
+                if removed_events[i].recurs_with(removed_events[i - 1]):
+                    del removed_events[i]
+                else:
+                    i += 1
+            for event in new_events:
+                # title change check: is there an event with the same start and end time, but different title?
+                old_event = next(
+                    (
+                        e
+                        for e in removed_events
+                        if e.start == event.start
+                        and e.end == event.end
+                        and e.title != event.title
+                    ),
+                    None,
+                )
+                if old_event:
+                    removed_events.remove(old_event)
+                    self.bot.dispatch(
+                        "calendar_event_title_modified",
+                        event,
+                        calendar,
+                        team,
+                        old_event.title,
+                        event.title,
+                    )
+                    continue
+
+                # time change check: is there an event with the same title, but different start and/or end time?
+                old_event = next(
+                    (
+                        e
+                        for e in removed_events
+                        if e.title == event.title
+                        and (e.start != event.start or e.end != event.end)
+                    ),
+                    None,
+                )
+                if old_event:
+                    removed_events.remove(old_event)
+                    self.bot.dispatch(
+                        "calendar_event_time_modified",
+                        event,
+                        calendar,
+                        team,
+                        old_event.start,
+                        old_event.end,
+                        event.start,
+                        event.end,
+                    )
+                    continue
+
+                # location change check: is there an event with the same title, but different location?
+                old_event = next(
+                    (
+                        e
+                        for e in removed_events
+                        if e.title == event.title
+                        and e.start == event.start
+                        and e.end == event.end
+                    ),
+                    None,
+                )
+                if old_event:
+                    removed_events.remove(old_event)
+                    self.bot.dispatch(
+                        "calendar_event_location_modified",
+                        event,
+                        calendar,
+                        team,
+                        old_event.location,
+                        event.location,
+                    )
+                    continue
+
+                # new event
+                self.bot.dispatch("calendar_event_added", event, calendar, team)
+
+            for event in removed_events:
+                self.bot.dispatch("calendar_event_deleted", event, calendar, team)
+        self.calendar_stores[calendar] = cal_events
         return cal_events
+
+    @commands.Cog.listener()
+    async def on_calendar_event_added(
+        self,
+        event: Event,
+        calendar: OutlookCalendar,
+        team: Team,
+    ):
+        leads_channel = self.bot.team_leads_ch(team)
+        await leads_channel.send(
+            f'"{event.title}" was added to the "{calendar.name}" calendar.',
+        )
+
+    @commands.Cog.listener()
+    async def on_calendar_event_title_modified(
+        self,
+        event: Event,
+        calendar: OutlookCalendar,
+        team: Team,
+        old_name: str,
+        new_name: str,
+    ):
+        leads_channel = self.bot.team_leads_ch(team)
+        await leads_channel.send(
+            f'"{old_name}" was renamed to "{new_name}" in the "{calendar.name}" calendar.',
+        )
+
+    @commands.Cog.listener()
+    async def on_calendar_event_time_modified(
+        self,
+        event: Event,
+        calendar: OutlookCalendar,
+        team: Team,
+        old_start: datetime.datetime,
+        old_end: datetime.datetime,
+        new_start: datetime.datetime,
+        new_end: datetime.datetime,
+    ):
+        leads_channel = self.bot.team_leads_ch(team)
+        await leads_channel.send(
+            f'"{event.title}": time was changed from {discord.utils.format_dt(old_start, "t")} - {discord.utils.format_dt(old_end, "t")} to {discord.utils.format_dt(new_start, "t")} - {discord.utils.format_dt(new_end, "t")} in the "{calendar.name}" calendar.',
+        )
+
+    @commands.Cog.listener()
+    async def on_calendar_event_location_modified(
+        self,
+        event: Event,
+        calendar: OutlookCalendar,
+        team: Team,
+        old_location: str,
+        new_location: str,
+    ):
+        leads_channel = self.bot.team_leads_ch(team)
+        old_location_pretty = old_location.replace("\\n", ", ")
+        new_location_pretty = new_location.replace("\\n", ", ")
+        await leads_channel.send(
+            f'"{event.title}": location was changed from "{old_location_pretty}" to "{new_location_pretty}" in the "{calendar.name}" calendar.',
+        )
+
+    @commands.Cog.listener()
+    async def on_calendar_event_deleted(
+        self,
+        event: Event,
+        calendar: OutlookCalendar,
+        team: Team,
+    ):
+        leads_channel = self.bot.team_leads_ch(team)
+        await leads_channel.send(
+            f'"{event.title}" was deleted from the "{calendar.name}" calendar.',
+        )
 
     def calendar_channel(self) -> discord.TextChannel:
         for value in StatusChannelName:
@@ -259,7 +476,7 @@ class Calendar(commands.Cog):
 
         return capped_str(strs) or "No events scheduled."
 
-    @tasks.loop(minutes=5)
+    @tasks.loop(minutes=3)
     async def calendar(self):
         await self.bot.wait_until_ready()
         start_time = time.monotonic()
@@ -272,9 +489,12 @@ class Calendar(commands.Cog):
         events = []
         error = []
         for calendar, team in self.calendars.items():
+            if calendar.protected:
+                continue
             try:
-                events += await self.load_calendar(calendar.ics_url, team)
+                events += await self.load_calendar(calendar, team)
             except Exception:
+                logger.exception(f"Failed to load calendar {calendar.name}")
                 error.append(calendar)
         events.sort(key=lambda x: x.start)
         today_events = [
