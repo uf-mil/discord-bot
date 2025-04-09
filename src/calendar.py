@@ -273,7 +273,10 @@ class Calendar(commands.Cog):
                     del new_events[i]
                 else:
                     i += 1
-            removed_events = [event for event in store if event not in cal_events]
+            # and event.upcoming() ensurs that all of the events we have removed are forthcoming
+            removed_events = [
+                event for event in store if event not in cal_events and event.upcoming()
+            ]
             i = 1
             while i < len(removed_events):
                 if removed_events[i].recurs_with(removed_events[i - 1]):
