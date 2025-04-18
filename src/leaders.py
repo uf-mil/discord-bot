@@ -34,6 +34,7 @@ MEETING_DAY = calendar.THURSDAY
 JANUARY = 1
 MARCH = 3
 JUNE = 6
+AUGUST = 8
 SEPTEMBER = 9
 
 
@@ -100,7 +101,7 @@ class Leaders(commands.Cog):
     async def new_grad_to_alumni_fall(self):
         await self.new_grad_to_alumni()
 
-    @run_yearly(SEPTEMBER, 1)
+    @run_yearly(SEPTEMBER, 15)
     async def new_grad_to_alumni_spring(self):
         await self.new_grad_to_alumni()
 
@@ -116,7 +117,7 @@ class Leaders(commands.Cog):
     async def remind_demote_new_grads_fall(self):
         await self.notify_lead_removal()
 
-    @run_yearly(JUNE, 1)
+    @run_yearly(SEPTEMBER, 1)
     async def demote_new_grads_spring(self):
         await self.demote_new_grads()
 

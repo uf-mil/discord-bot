@@ -1,11 +1,12 @@
 discord
 pre-commit==4.0.1
-aiohttp==3.8.4
+aiohttp==3.11.16
 icalendar==5.0.11
 recurring-ical-events==2.1.2
+greenlet==3.2.0
 aiosmtplib==3.0.1
 better-ipc==2.0.3
-sqlalchemy==2.0.22
+sqlalchemy==2.0.40
 aiosqlite==0.20.0
 gspread-asyncio==1.9.0
 rich==13.7.1
