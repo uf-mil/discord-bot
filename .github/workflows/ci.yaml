@@ -8,8 +8,8 @@ on:
 env:
   # Cache version to control pre-commit caches
   CACHE_VERSION: 0
-  # 3.10 is recent enough
-  DEFAULT_PYTHON: 3.10.11
+  # 3.13.3 is the latest version of Python 3 at the time of writing
+  DEFAULT_PYTHON: 3.13.3
   # Location of the pre-commit cache. This is set by pre-commit, not us!
   PRE_COMMIT_CACHE: ~/.cache/pre-commit
 
@@ -64,3 +64,37 @@ jobs:
         run: >
           SKIP=no-commit-to-branch
           pre-commit run --all-files --show-diff-on-failure
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Setup Python
+        uses: actions/setup-python@v5.4.0
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON}}
+          cache: "pip"
+
+      - name: Create env file
+        run: |
+          echo "GSPREAD_PRIVATE_KEY=not_needed" >> src/.env
+          echo "GSPREAD_PRIVATE_KEY_ID=not_needed" >> src/.env
+          echo "GSPREAD_SERVICE_ACCOUNT_EMAIL=not_needed" >> src/.env
+          echo "GSPREAD_TOKEN_URI=not_needed" >> src/.env
+          echo "GSPREAD_SS_NAME=not_needed" >> src/.env
+          echo "DISCORD_TOKEN=not_needed" >> src/.env
+          echo "GUILD_ID=123" >> src/.env
+          echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> src/.env
+          echo "MEETING_NOTES_URL=not_needed" >> src/.env
+          echo "MEETING_URL=not_needed" >> src/.env
+          echo "DATABASE_ENGINE_URL=not_needed" >> src/.env
+
+      - name: Run pytest
+        run: |
+          cd $GITHUB_WORKSPACE
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pytest --disable-warnings

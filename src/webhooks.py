@@ -696,7 +696,7 @@ class CheckSuiteCompleted(WebhookResponse):
     async def message(self) -> str:
         gh = self.github_data
         # If a fail occurs on the head branch, send a message to software-leadership in the form of:
-        # 1 job ([link](link)) failed on commit [commit_sha](link) by [User A](link) in [repo_name](link) failed on [head branch name](link)
+        # 1 job ([job_name](link)) failed on commit [commit_sha](link) by [User A](link) in [repo_name](link) failed on [head branch name](link)
         check_runs = await self.bot.github.fetch(
             gh["check_suite"]["check_runs_url"],
         )
@@ -705,7 +705,7 @@ class CheckSuiteCompleted(WebhookResponse):
         ]
         failed_count = f"{len(failed)} job{'s' if len(failed) != 1 else ''}"
         failed_links = [
-            f"[link {i+1}]({self.url(run, html=True)})" for i, run in enumerate(failed)
+            f"[]({self.url(run, html=True)})" for i, run in enumerate(failed)
         ]
         failed_links_str = ", ".join(failed_links)
         name = f"[{await self.real_name(gh['sender']['login'])}]({self.url(gh['sender'], html=True)})"
