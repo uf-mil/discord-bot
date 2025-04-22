@@ -11,3 +11,5 @@ aiosqlite==0.20.0
 gspread-asyncio==1.9.0
 rich==13.7.1
 python-dotenv==0.19.1
+pytest==8.3.5
+pytest-asyncio==0.26.0
