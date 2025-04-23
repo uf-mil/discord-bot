@@ -1,0 +1,79 @@
+---
+name: Autopush
+
+# yamllint disable-line rule:truthy
+on:
+  push:
+    branches:
+      - autopush-*
+
+# Cancels this run if a new one referring to the same object and same workflow
+# is requested
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ensure_autopusher:
+    name: Ensure user has autopush access
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check autopushers team membership
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.INVESTIGATOR_BOT_TOKEN }}
+          script: |
+            const team = 'autopushers';
+            const teamResponse = await github.rest.teams.listMembersInOrg({
+              org: context.repo.owner,
+              team_slug: team,
+            });
+            const members = teamResponse.data.map((member) => member.login);
+            // Check if the user is a member of the team
+            if (!members.includes(context.actor)) {
+              core.setFailed(`User ${context.actor} is not a member of the ` +
+              `${team} team. Found: ${members.join(', ')}`);
+            }
+
+  autopush:
+    name: Autopush changes
+    needs: [pre-commit]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for linting
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.ref }}
+          check-name: 'Lint'
+          repo-token: ${{ secrets.INVESTIGATOR_BOT_TOKEN }}
+          wait-interval: 10
+
+      - name: Wait for linting
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.ref }}
+          check-name: 'Tests'
+          repo-token: ${{ secrets.INVESTIGATOR_BOT_TOKEN }}
+          wait-interval: 10
+
+      - name: Check out code from GitHub
+        uses: actions/checkout@v3.0.2
+        with:
+          submodules: recursive
+          token: ${{ secrets.INVESTIGATOR_BOT_TOKEN }}
+          ref: ${{ github.event.ref }}
+          fetch-depth: 0
+
+      - name: Create commit
+        run: |
+          git fetch
+          git config --global user.name \
+            "$(git --no-pager log --format=format:'%an' -n 1)"
+          git config --global user.email \
+            "$(git --no-pager log --format=format:'%ae' -n 1)"
+          git rebase origin/master
+          git checkout master
+          git branch
+          git merge --ff-only ${{ github.event.ref }}
+          git push
+          git push -d origin ${{ github.event.ref }}
