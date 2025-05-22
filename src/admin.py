@@ -30,6 +30,9 @@ class Admin(commands.Cog):
     @commands.command()
     @commands.has_role("Leaders")
     async def hash(self, ctx: commands.Context):
+        """
+        Gets the current hash running the bot.
+        """
         process = await asyncio.create_subprocess_exec(
             "git",
             "rev-parse",
@@ -42,6 +45,12 @@ class Admin(commands.Cog):
     @commands.command(name="clearrole")
     @commands.has_role("Leaders")
     async def clear_role(self, ctx: commands.Context, role_name: str):
+        """
+        Removes a role (by name) from all members in the server.
+
+        Args:
+            role_name (str): The name of the role to remove.
+        """
         role = discord.utils.get(self.bot.active_guild.roles, name=role_name)
         if role is None:
             await ctx.reply(f"Cannot find role: `{role_name}`")

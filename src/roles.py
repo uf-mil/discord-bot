@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import discord
 from discord.ext import commands
 
+from .env import GUILD_ID
 from .views import MILBotView
 
 if TYPE_CHECKING:
@@ -102,7 +103,7 @@ class SummerRolesView(MILBotView):
         )
 
 
-class GroupCog(commands.Cog):
+class RolesCog(commands.Cog):
     def __init__(self, bot: MILBot):
         self.bot = bot
 
@@ -158,6 +159,115 @@ class GroupCog(commands.Cog):
             f"{author} gave {after.mention} the alumni role. Please welcome them to this channel! :wave:",
         )
 
+    def _get_guild(self):
+        guild = self.bot.get_guild(GUILD_ID)
+        if not guild:
+            guild = self.bot.fetch_guild(GUILD_ID)
+        assert isinstance(guild, discord.Guild)
+        return guild
+
+    def _get_text_channel(self, name, category=None):
+        attrs = {
+            "name": name,
+        }
+        if category:
+            attrs["category"] = category
+        channel = discord.utils.get(
+            self.bot.active_guild.text_channels,
+            **attrs,
+        )
+        if not channel:
+            raise ValueError(
+                f'Channel "#{name}" not found in guild {self.bot.active_guild.name}',
+            )
+        return channel
+
+    def _get_category(self, name):
+        category = discord.utils.get(self.bot.active_guild.categories, name=name)
+        if not category:
+            raise ValueError(
+                f'Category "{name}" not found in guild {self.bot.active_guild.name}',
+            )
+        return category
+
+    def _get_role(self, name):
+        role = discord.utils.get(self.bot.active_guild.roles, name=name)
+        assert isinstance(role, discord.Role)
+        return role
+
+    def _load_channels(self):
+        text_channels = {
+            "leave_channel": "leave-log",
+            "general_channel": "general",
+            "member_services_channel": "member-services",
+            "alumni_channel": "alumni",
+            "leaders_channel": "leads",
+            "operations_leaders_channel": "operations-leadership",
+            "software_leaders_channel": "software-leadership",
+            "electrical_leaders_channel": "electrical-leadership",
+            "mechanical_leaders_channel": "mechanical-leadership",
+            "message_log_channel": "message-log",
+            "errors_channel": "bot-errors",
+            "software_projects_channel": "software-projects",
+        }
+
+        for attr, name in text_channels.items():
+            setattr(self.bot, attr, self._get_text_channel(name))
+
+    def _load_categories(self):
+        categories = {
+            "software_category_channel": "Software",
+            "electrical_category_channel": "Electrical",
+            "leads_category_channel": "Leadership",
+            "mechanical_category_channel": "Mechanical",
+        }
+
+        for attr, name in categories.items():
+            setattr(self.bot, attr, self._get_category(name))
+
+        # Github channels that depend on categories
+        self.bot.software_github_channel = self._get_text_channel(
+            "github-updates",
+            self.bot.software_category_channel,
+        )
+        self.bot.electrical_github_channel = self._get_text_channel(
+            "github-updates",
+            self.bot.electrical_category_channel,
+        )
+        self.bot.mechanical_github_channel = self._get_text_channel(
+            "github-updates",
+            self.bot.mechanical_category_channel,
+        )
+        self.bot.leads_github_channel = self._get_text_channel(
+            "github-wiki-updates",
+            self.bot.leads_category_channel,
+        )
+
+    def _load_roles(self):
+        roles = {
+            "egn4912_role": "EGN4912",
+            "leaders_role": "Leaders",
+            "sys_leads_role": "Systems Leadership",
+            "software_leads_role": "Software Leadership",
+            "bot_role": "Bot",
+            "alumni_role": "Alumni",
+            "new_grad_role": "New Graduate",
+            "away_role": "Away from MIL",
+        }
+
+        for attr, name in roles.items():
+            setattr(self.bot, attr, self._get_role(name))
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """
+        Fetches guild and role information.
+        """
+        self.bot.active_guild = self._get_guild()
+        self._load_channels()
+        self._load_categories()
+        self._load_roles()
+
 
 async def setup(bot: MILBot):
-    await bot.add_cog(GroupCog(bot))
+    await bot.add_cog(RolesCog(bot))

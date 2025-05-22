@@ -15,7 +15,6 @@ import discord
 import gspread_asyncio
 from discord import app_commands
 from discord.ext import commands
-from discord.ext import tasks as ext_tasks
 from google.auth import crypt
 from google.oauth2.service_account import Credentials
 from rich.logging import RichHandler
@@ -34,7 +33,6 @@ from .env import (
     GSPREAD_SERVICE_ACCOUNT_EMAIL,
     GSPREAD_SS_NAME,
     GSPREAD_TOKEN_URI,
-    GUILD_ID,
 )
 from .exceptions import MILBotErrorHandler, ResourceNotFound
 from .github import GitHub
@@ -110,7 +108,7 @@ class MILBot(commands.Bot):
     software_projects_channel: discord.TextChannel
     mechanical_category_channel: discord.CategoryChannel
     electrical_category_channel: discord.CategoryChannel
-    leaders_category_channel: discord.CategoryChannel
+    leads_category_channel: discord.CategoryChannel
     software_category_channel: discord.CategoryChannel
     operations_leaders_channel: discord.TextChannel
     software_leaders_channel: discord.TextChannel
@@ -129,6 +127,7 @@ class MILBot(commands.Bot):
     bot_role: discord.Role
     alumni_role: discord.Role
     new_grad_role: discord.Role
+    away_role: discord.Role
 
     # Cogs
     reports_cog: ReportsCog
@@ -155,8 +154,6 @@ class MILBot(commands.Bot):
     async def on_ready(self):
         print("Logged on as", self.user)
         self.loading_emoji = "<a:loading:1154245561680138240>"
-        if not self.change_status.is_running():
-            self.change_status.start()
         self.tasks.start()
         engine = create_async_engine(DATABASE_ENGINE_URL)
         async with engine.begin() as conn:
@@ -170,59 +167,6 @@ class MILBot(commands.Bot):
         await self.session.close()
         await self.db_factory.close()
         await super().close()
-
-    @ext_tasks.loop(hours=1)
-    async def change_status(self):
-        activities: list[discord.Activity] = [
-            discord.Activity(type=discord.ActivityType.watching, name="ROS tutorials"),
-            discord.Activity(type=discord.ActivityType.playing, name="with SubjuGator"),
-            discord.Activity(
-                type=discord.ActivityType.watching,
-                name="VRX submissions",
-            ),
-            discord.Activity(
-                type=discord.ActivityType.playing,
-                name="with soldering irons",
-            ),
-            discord.Activity(
-                type=discord.ActivityType.playing,
-                name="ML Image Labeler",
-            ),
-            discord.Activity(
-                type=discord.ActivityType.playing,
-                name="SolidWorks",
-            ),
-            discord.Activity(
-                type=discord.ActivityType.listening,
-                name="robotics lectures",
-            ),
-            discord.Activity(
-                type=discord.ActivityType.listening,
-                name="underwater pings",
-            ),
-            discord.Activity(
-                type=discord.ActivityType.listening,
-                name="feedback from members",
-            ),
-            discord.Activity(type=discord.ActivityType.watching, name="for new PRs"),
-            discord.Activity(
-                type=discord.ActivityType.watching,
-                name="mechanical Tech Talks",
-            ),
-            discord.Activity(
-                type=discord.ActivityType.watching,
-                name="students get internships",
-            ),
-            discord.Activity(
-                type=discord.ActivityType.watching,
-                name="the DSIT building open",
-            ),
-            discord.Activity(
-                type=discord.ActivityType.listening,
-                name="alumni advice",
-            ),
-        ]
-        await self.change_presence(activity=random.choice(activities))
 
     async def get_or_fetch_member(self, user_id: int) -> discord.Member:
         """
@@ -261,6 +205,7 @@ class MILBot(commands.Bot):
         extensions = (
             "src.admin",
             "src.calendar",
+            "src.fun",
             "src.github.cog",
             "src.leaders",
             "src.logger",
@@ -298,215 +243,6 @@ class MILBot(commands.Bot):
         self.sh = await self.agc.open(GSPREAD_SS_NAME)
 
     async def fetch_vars(self) -> None:
-        # Guilds
-        guild = self.get_guild(GUILD_ID)
-        if not guild:
-            guild = self.fetch_guild(GUILD_ID)
-        assert isinstance(guild, discord.Guild)
-        self.active_guild = guild
-
-        # Channels
-        leave_channel = discord.utils.get(
-            self.active_guild.text_channels,
-            name="leave-log",
-        )
-        assert isinstance(leave_channel, discord.TextChannel)
-        self.leave_channel = leave_channel
-
-        general_channel = discord.utils.get(
-            self.active_guild.text_channels,
-            name="general",
-        )
-        assert isinstance(general_channel, discord.TextChannel)
-        self.general_channel = general_channel
-
-        member_services_channel = discord.utils.get(
-            self.active_guild.text_channels,
-            name="member-services",
-        )
-        assert isinstance(member_services_channel, discord.TextChannel)
-        self.member_services_channel = member_services_channel
-
-        alumni_channel = discord.utils.get(
-            self.active_guild.text_channels,
-            name="alumni",
-        )
-        assert isinstance(alumni_channel, discord.TextChannel)
-        self.alumni_channel = alumni_channel
-
-        leaders_channel = discord.utils.get(
-            self.active_guild.text_channels,
-            name="leads",
-        )
-        assert isinstance(leaders_channel, discord.TextChannel)
-        self.leaders_channel = leaders_channel
-
-        operations_leaders_channel = discord.utils.get(
-            self.active_guild.text_channels,
-            name="operations-leadership",
-        )
-        assert isinstance(operations_leaders_channel, discord.TextChannel)
-        self.operations_leaders_channel = operations_leaders_channel
-
-        software_leaders_channel = discord.utils.get(
-            self.active_guild.text_channels,
-            name="software-leadership",
-        )
-        assert isinstance(software_leaders_channel, discord.TextChannel)
-        self.software_leaders_channel = software_leaders_channel
-
-        electrical_leaders_channel = discord.utils.get(
-            self.active_guild.text_channels,
-            name="electrical-leadership",
-        )
-        assert isinstance(electrical_leaders_channel, discord.TextChannel)
-        self.electrical_leaders_channel = electrical_leaders_channel
-
-        mechanical_leaders_channel = discord.utils.get(
-            self.active_guild.text_channels,
-            name="mechanical-leadership",
-        )
-        assert isinstance(mechanical_leaders_channel, discord.TextChannel)
-        self.mechanical_leaders_channel = mechanical_leaders_channel
-
-        message_log_channel = discord.utils.get(
-            self.active_guild.text_channels,
-            name="message-log",
-        )
-        assert isinstance(message_log_channel, discord.TextChannel)
-        self.message_log_channel = message_log_channel
-
-        software_category_channel = discord.utils.get(
-            self.active_guild.categories,
-            name="Software",
-        )
-        assert isinstance(software_category_channel, discord.CategoryChannel)
-        self.software_category_channel = software_category_channel
-
-        electrical_category_channel = discord.utils.get(
-            self.active_guild.categories,
-            name="Electrical",
-        )
-        assert isinstance(electrical_category_channel, discord.CategoryChannel)
-        self.electrical_category_channel = electrical_category_channel
-
-        leads_category_channel = discord.utils.get(
-            self.active_guild.categories,
-            name="Leadership",
-        )
-        assert isinstance(leads_category_channel, discord.CategoryChannel)
-        self.leads_category_channel = leads_category_channel
-
-        mechanical_category_channel = discord.utils.get(
-            self.active_guild.categories,
-            name="Mechanical",
-        )
-        assert isinstance(mechanical_category_channel, discord.CategoryChannel)
-        self.mechanical_category_channel = mechanical_category_channel
-
-        el_github_updates_channel = discord.utils.get(
-            self.active_guild.text_channels,
-            name="github-updates",
-            category=self.software_category_channel,
-        )
-        assert isinstance(el_github_updates_channel, discord.TextChannel)
-        self.software_github_channel = el_github_updates_channel
-
-        el_github_updates_channel = discord.utils.get(
-            self.active_guild.text_channels,
-            name="github-updates",
-            category=self.electrical_category_channel,
-        )
-        assert isinstance(el_github_updates_channel, discord.TextChannel)
-        self.electrical_github_channel = el_github_updates_channel
-
-        mech_github_updates_channel = discord.utils.get(
-            self.active_guild.text_channels,
-            name="github-updates",
-            category=self.mechanical_category_channel,
-        )
-        assert isinstance(mech_github_updates_channel, discord.TextChannel)
-        self.mechanical_github_channel = mech_github_updates_channel
-
-        leads_github_updates_channel = discord.utils.get(
-            self.active_guild.text_channels,
-            name="github-wiki-updates",
-            category=self.leads_category_channel,
-        )
-        assert isinstance(leads_github_updates_channel, discord.TextChannel)
-        self.leads_github_channel = leads_github_updates_channel
-
-        errors_channel = discord.utils.get(
-            self.active_guild.text_channels,
-            name="bot-errors",
-        )
-        assert isinstance(errors_channel, discord.TextChannel)
-        self.errors_channel = errors_channel
-
-        software_projects_channel = discord.utils.get(
-            self.active_guild.text_channels,
-            name="software-projects",
-        )
-        assert isinstance(software_projects_channel, discord.TextChannel)
-        self.software_projects_channel = software_projects_channel
-
-        # Roles
-        egn4912_role = discord.utils.get(
-            self.active_guild.roles,
-            name="EGN4912",
-        )
-        assert isinstance(egn4912_role, discord.Role)
-        self.egn4912_role = egn4912_role
-
-        leaders_role = discord.utils.get(
-            self.active_guild.roles,
-            name="Leaders",
-        )
-        assert isinstance(leaders_role, discord.Role)
-        self.leaders_role = leaders_role
-
-        sys_leads_role = discord.utils.get(
-            self.active_guild.roles,
-            name="Systems Leadership",
-        )
-        assert isinstance(sys_leads_role, discord.Role)
-        self.sys_leads_role = sys_leads_role
-
-        software_leads_role = discord.utils.get(
-            self.active_guild.roles,
-            name="Software Leadership",
-        )
-        assert isinstance(software_leads_role, discord.Role)
-        self.software_leads_role = software_leads_role
-
-        bot_role = discord.utils.get(
-            self.active_guild.roles,
-            name="Bot",
-        )
-        assert isinstance(bot_role, discord.Role)
-        self.bot_role = bot_role
-
-        alumni_role = discord.utils.get(
-            self.active_guild.roles,
-            name="Alumni",
-        )
-        assert isinstance(alumni_role, discord.Role)
-        self.alumni_role = alumni_role
-
-        new_grad_role = discord.utils.get(
-            self.active_guild.roles,
-            name="New Graduate",
-        )
-        assert isinstance(new_grad_role, discord.Role)
-        self.new_grad_role = new_grad_role
-
-        away_role = discord.utils.get(
-            self.active_guild.roles,
-            name="Away from MIL",
-        )
-        assert isinstance(away_role, discord.Role)
-        self.away_role = away_role
-
         reports_cog = self.get_cog("ReportsCog")
         if not reports_cog:
             raise ResourceNotFound("Reports cog not found.")
