@@ -4,6 +4,10 @@ from typing import Literal, overload
 from dotenv import load_dotenv
 
 load_dotenv()
+# Whether ensure_string should be enforced (aka, whether all environment variables
+# should be present). If this is set to false, the bot may randomly crash upon an
+# environment variable not being found.
+ENV_REQUIRED = os.getenv("ENV_REQUIRED", "true").lower() == "true"
 
 
 @overload
@@ -20,7 +24,7 @@ def ensure_string(name: str, optional: bool) -> str | None: ...
 
 def ensure_string(name: str, optional: bool = False) -> str | None:
     value = os.getenv(name)
-    if value is None and not optional:
+    if value is None and not optional and ENV_REQUIRED:
         raise ValueError(f"Environment variable {name} is not set.")
     return value or ""
 

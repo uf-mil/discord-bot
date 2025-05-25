@@ -1,0 +1,53 @@
+---
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      # Discord info
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - GUILD_ID=${GUILD_ID}
+      # Google Sheets authentication
+      - GSPREAD_PRIVATE_KEY_ID=${GSPREAD_PRIVATE_KEY_ID}
+      - GSPREAD_PRIVATE_KEY=${GSPREAD_PRIVATE_KEY}
+      - GSPREAD_SERVICE_ACCOUNT_EMAIL=${GSPREAD_SERVICE_ACCOUNT_EMAIL}
+      - GSPREAD_TOKEN_URI=${GSPREAD_TOKEN_URI}
+      - GSPREAD_SS_NAME=${GSPREAD_SS_NAME}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - MEETING_NOTES_URL=${MEETING_NOTES_URL}
+      - MEETING_URL=${MEETING_URL}
+      # Using emails
+      - EMAIL_USERNAME=${EMAIL_USERNAME}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
+      # Webhooks
+      - WEBHOOK_SERVER_PORT=${WEBHOOK_SERVER_PORT}
+      - IPC_PORT=${IPC_PORT}
+      # GitHub Oauth verification
+      - GITHUB_OAUTH_CLIENT_ID=${GITHUB_OAUTH_CLIENT_ID}
+      - GITHUB_OAUTH_CLIENT_SECRET=${GITHUB_OAUTH_CLIENT_SECRET}
+      # Database
+      - DATABASE_ENGINE_URL=${DATABASE_ENGINE_URL}$
+      # Wiki
+      - WIKI_USERNAME=${WIKI_USERNAME}
+      - WIKI_PASSWORD=${WIKI_PASSWORD}
+      # Calendar contents
+      - GENERAL_CALENDAR=${GENERAL_CALENDAR}
+      - SOFTWARE_MEETINGS_CALENDAR=${SOFTWARE_MEETINGS_CALENDAR}
+      - SOFTWARE_OH_CALENDAR=${SOFTWARE_OH_CALENDAR}
+      - MECHANICAL_MEETINGS_CALENDAR=${MECHANICAL_MEETINGS_CALENDAR}
+      - MECHANICAL_OH_CALENDAR=${MECHANICAL_OH_CALENDAR}
+      - ELECTRICAL_MEETINGS_CALENDAR=${ELECTRICAL_MEETINGS_CALENDAR}
+      - ELECTRICAL_OH_CALENDAR=${ELECTRICAL_OH_CALENDAR}
+    ports:
+      - "8087:8087"
+
+  webhook_server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: python3 -m src.webhook_server
+    environment:
+      - ENV_REQUIRED=0
+      - WEBHOOK_SERVER_PORT=${WEBHOOK_SERVER_PORT}
+    network_mode: "service:bot"
