@@ -118,7 +118,8 @@ class WebhookResponse:
         login = (
             repository_or_login
             if isinstance(repository_or_login, str)
-            else repository_or_login["owner"]["login"]
+            # probably a repository object if not a string
+            else repository_or_login["full_name"]
         )
         if (
             isinstance(repository_or_login, dict)
@@ -129,15 +130,19 @@ class WebhookResponse:
         if (
             isinstance(repository_or_login, dict)
             and "full_name" in repository_or_login
-            and (repository_or_login["full_name"] == "uf-mil-mechanical/leadership")
+            and (repository_or_login["full_name"] == "uf-mil/mechanical-leadership")
         ):
             return self.bot.mechanical_leaders_channel
+        if (
+            isinstance(repository_or_login, dict)
+            and "full_name" in repository_or_login
+            and (repository_or_login["full_name"] == "uf-mil/leadership")
+        ) or login.startswith("uf-mil/leadership"):
+            return self.bot.leads_github_channel
+        if login.startswith("uf-mil/mechanical"):
+            return self.bot.mechanical_github_channel
         if login.startswith("uf-mil-electrical"):
             return self.bot.electrical_github_channel
-        if login.startswith("uf-mil-mechanical"):
-            return self.bot.mechanical_github_channel
-        if login.startswith("uf-mil-leadership"):
-            return self.bot.leads_github_channel
         return self.bot.software_github_channel
 
     def leaders_channel(self, repository_or_login: dict | str) -> discord.TextChannel:
@@ -148,18 +153,18 @@ class WebhookResponse:
         )
         if login.startswith("uf-mil-electrical"):
             return self.bot.electrical_leaders_channel
-        if login.startswith("uf-mil-mechanical"):
+        if login.startswith("uf-mil/mechanical"):
             return self.bot.mechanical_leaders_channel
-        if login.startswith("uf-mil-leadership"):
+        if login.startswith("uf-mil/leadership"):
             return self.bot.leads_github_channel
         return self.bot.software_leaders_channel
 
     def category_channel(self, login: str) -> discord.CategoryChannel:
         if login.startswith("uf-mil-electrical"):
             return self.bot.electrical_category_channel
-        if login.startswith("uf-mil-mechanical"):
+        if login.startswith("uf-mil/mechanical"):
             return self.bot.mechanical_category_channel
-        if login.startswith("uf-mil-leadership"):
+        if login.startswith("uf-mil/leadership"):
             return self.bot.leads_category_channel
         return self.bot.software_category_channel
 
