@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import discord
 from discord.ext import commands
 
-from .env import GUILD_ID
+from .env import EMOJI_GUILD_ID, GUILD_ID
 from .views import MILBotView
 
 if TYPE_CHECKING:
@@ -159,10 +159,10 @@ class RolesCog(commands.Cog):
             f"{author} gave {after.mention} the alumni role. Please welcome them to this channel! :wave:",
         )
 
-    def _get_guild(self):
-        guild = self.bot.get_guild(GUILD_ID)
+    def _get_guild(self, id: int):
+        guild = self.bot.get_guild(id)
         if not guild:
-            guild = self.bot.fetch_guild(GUILD_ID)
+            guild = self.bot.fetch_guild(id)
         assert isinstance(guild, discord.Guild)
         return guild
 
@@ -263,7 +263,8 @@ class RolesCog(commands.Cog):
         """
         Fetches guild and role information.
         """
-        self.bot.active_guild = self._get_guild()
+        self.bot.active_guild = self._get_guild(GUILD_ID)
+        self.bot.active_emoji_guild = self._get_guild(EMOJI_GUILD_ID)
         self._load_channels()
         self._load_categories()
         self._load_roles()
