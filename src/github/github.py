@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import datetime
 import json
 import logging
@@ -76,10 +77,7 @@ class GitHub:
         extra_headers = {
             "Accept": "application/json",
         }
-        data = {
-            "client_id": GITHUB_OAUTH_CLIENT_ID,
-            "scope": "repo admin:org user project",
-        }
+        data = {"client_id": GITHUB_OAUTH_CLIENT_ID}
         response = await self.fetch(
             url,
             method="POST",
@@ -196,9 +194,6 @@ class GitHub:
         previous_monday_format = previous_monday_midnight.isoformat()
         query = f"""
         {{
-            viewer {{
-              login
-            }}
             organization(login: "{organization}") {{
             repositories(first: 10, orderBy: {{field: PUSHED_AT, direction: DESC}}) {{
               nodes {{
@@ -236,14 +231,21 @@ class GitHub:
           }}
         }}
         """
-        properties = await self.fetch(
-            "https://api.github.com/graphql",
-            method="POST",
-            data=json.dumps({"query": query}),
-            user_access_token=user_token,
+        [properties, user_properties] = await asyncio.gather(
+            self.fetch(
+                "https://api.github.com/graphql",
+                method="POST",
+                data=json.dumps({"query": query}),
+            ),
+            self.fetch(
+                "https://api.github.com/graphql",
+                method="POST",
+                data=json.dumps({"query": "{ viewer { login } }"}),
+                user_access_token=user_token,
+            ),
         )
         commits = []
-        login = properties["data"]["viewer"]["login"]
+        login = user_properties["data"]["viewer"]["login"]
         for repo in properties["data"]["organization"]["repositories"]["nodes"]:
             for branch in repo["refs"]["nodes"]:
                 for commit in branch["target"]["history"]["nodes"]:
@@ -465,6 +467,16 @@ class GitHub:
             end = datetime.datetime.now().astimezone()
         start = start.astimezone()
         start_format = start.isoformat()
+
+        username = (
+            await self.fetch(
+                "https://api.github.com/graphql",
+                method="POST",
+                data=json.dumps({"query": "{ viewer { login } }"}),
+                user_access_token=user_token,
+            )
+        )["data"]["viewer"]["login"]
+
         query = f"""query {{
           rateLimit {{
             remaining
@@ -472,7 +484,7 @@ class GitHub:
             used
             cost
           }}
-          viewer {{
+          user(login: "{username}") {{
             login
             issueComments(first: 100, orderBy: {{field: UPDATED_AT, direction: DESC}}) {{
               nodes {{
@@ -532,12 +544,10 @@ class GitHub:
             "https://api.github.com/graphql",
             method="POST",
             data=json.dumps({"query": query}),
-            user_access_token=user_token,
         )
-        username = properties["data"]["viewer"]["login"]
         filtered_issue_comments = [
             comment
-            for comment in properties["data"]["viewer"]["issueComments"]["nodes"]
+            for comment in properties["data"]["user"]["issueComments"]["nodes"]
             if end > datetime.datetime.fromisoformat(comment["createdAt"]) > start
             and comment["repository"]["owner"]["login"].startswith("uf-mil")
         ]
@@ -547,7 +557,7 @@ class GitHub:
         )
         filtered_pull_requests = [
             pr
-            for pr in properties["data"]["viewer"]["pullRequests"]["nodes"]
+            for pr in properties["data"]["user"]["pullRequests"]["nodes"]
             if pr["author"]["login"] == username
             and pr["repository"]["owner"]["login"].startswith("uf-mil")
             and end > datetime.datetime.fromisoformat(pr["createdAt"]) > start
@@ -558,7 +568,7 @@ class GitHub:
         )
         filtered_issues = [
             issue
-            for issue in properties["data"]["viewer"]["issues"]["nodes"]
+            for issue in properties["data"]["user"]["issues"]["nodes"]
             if issue["author"]["login"] == username
             and issue["repository"]["owner"]["login"].startswith("uf-mil")
             and end > datetime.datetime.fromisoformat(issue["createdAt"]) > start
@@ -571,7 +581,7 @@ class GitHub:
             + "+org:uf-mil+org:uf-mil-electrical+org:uf-mil-mechanical+committer-date:>="
             + start_format
         )
-        commits = await self.fetch(commits_call, user_access_token=user_token)
+        commits = await self.fetch(commits_call)
         commits = commits["items"]
         commits.sort(
             key=lambda commit: datetime.datetime.fromisoformat(
