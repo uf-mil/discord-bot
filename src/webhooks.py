@@ -13,6 +13,7 @@ from discord.ext import commands
 from discord.ext.ipc.objects import ClientPayload
 from discord.ext.ipc.server import Server
 
+from src.emoji import CustomEmoji
 from src.env import IPC_PORT
 
 if TYPE_CHECKING:
@@ -189,6 +190,10 @@ class WebhookResponse:
     async def message(self) -> str:
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def emoji(self) -> discord.Emoji | None:
+        raise NotImplementedError
+
 
 @dataclass
 class Push(WebhookResponse):
@@ -206,6 +211,9 @@ class Push(WebhookResponse):
 
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
+
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.COMMIT)
 
     async def message(self) -> str:
         gh = self.github_data
@@ -267,6 +275,9 @@ class StarCreated(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.STAR)
+
     async def message(self) -> str:
         gh = self.github_data
         # Send a message to github-updates in the form of:
@@ -281,6 +292,9 @@ class IssuesOpened(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         notify_channels = self.notify_channels(self.github_data["issue"]["labels"])
         return [self.updates_channel(self.github_data["repository"]), *notify_channels]
+
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.ISSUE_OPENED)
 
     async def message(self) -> str:
         gh = self.github_data
@@ -298,6 +312,11 @@ class IssuesClosed(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         notify_channels = self.notify_channels(self.github_data["issue"]["labels"])
         return [self.updates_channel(self.github_data["repository"]), *notify_channels]
+
+    def emoji(self) -> discord.Emoji | None:
+        if self.github_data["issue"]["state_reason"] == "not_planned":
+            return self.bot.emoji_registry.get_emoji(CustomEmoji.SKIP)
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.ISSUE_CLOSED)
 
     async def message(self) -> str:
         gh = self.github_data
@@ -319,6 +338,9 @@ class IssuesClosed(WebhookResponse):
 class OrganizationMemberInvited(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.leaders_channel(self.github_data["organization"]["login"])]
+
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.PERSON_ADDED)
 
     async def message(self) -> str:
         gh = self.github_data
@@ -345,6 +367,9 @@ class OrganizationMemberRemoved(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.leaders_channel(self.github_data["organization"]["login"])]
 
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.PERSON_REMOVED)
+
     async def message(self) -> str:
         gh = self.github_data
         # Send a message to software-leadership in the form of:
@@ -358,6 +383,9 @@ class OrganizationMemberRemoved(WebhookResponse):
 class PullRequestOpened(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
+
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.PULL_REQUEST_OPENED)
 
     async def message(self) -> str:
         gh = self.github_data
@@ -374,6 +402,15 @@ class PullRequestOpened(WebhookResponse):
 class PullRequestClosed(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
+
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(
+            (
+                CustomEmoji.PULL_REQUEST_MERGED
+                if self.github_data["pull_request"]["merged"]
+                else CustomEmoji.PULL_REQUEST_CLOSED
+            ),
+        )
 
     async def message(self) -> str:
         gh = self.github_data
@@ -397,6 +434,9 @@ class PullRequestReviewRequested(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.CODE_BUBBLE)
+
     async def message(self) -> str:
         gh = self.github_data
         # Send a message to github-updates in the form of:
@@ -414,6 +454,13 @@ class PullRequestReviewRequested(WebhookResponse):
 class PullRequestReviewSubmitted(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
+
+    def emoji(self) -> discord.Emoji | None:
+        if self.github_data["review"]["state"] == "changes_requested":
+            return self.bot.emoji_registry.get_emoji(CustomEmoji.X)
+        elif self.github_data["review"]["state"] == "commented":
+            return self.bot.emoji_registry.get_emoji(CustomEmoji.CODE_BUBBLE)
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.CHECK)
 
     async def message(self) -> str:
         gh = self.github_data
@@ -437,6 +484,9 @@ class CommitComment(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.COMMENT)
+
     async def message(self) -> str:
         gh = self.github_data
         # Send a message to github-updates in the form of:
@@ -454,6 +504,9 @@ class IssuesCommentCreated(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.COMMENT)
+
     async def message(self) -> str:
         gh = self.github_data
         # Send a message to github-updates in the form of:
@@ -470,6 +523,9 @@ class IssuesCommentCreated(WebhookResponse):
 class IssuesAssigned(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
+
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.PERSON_ADDED)
 
     async def message(self) -> str:
         gh = self.github_data
@@ -493,6 +549,9 @@ class IssuesAssigned(WebhookResponse):
 class IssuesUnassigned(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
+
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.PERSON_REMOVED)
 
     async def message(self) -> str:
         gh = self.github_data
@@ -522,6 +581,9 @@ class PullRequestEdited(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.PENCIL)
+
     async def message(self) -> str:
         gh = self.github_data
         # Send a message to github-updates in the form of:
@@ -543,6 +605,9 @@ class MembershipAdded(WebhookResponse):
 
     def targets(self) -> list[discord.TextChannel]:
         return [self.leaders_channel(self.github_data["organization"]["login"])]
+
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.PERSON_ADDED)
 
     async def message(self) -> str:
         gh = self.github_data
@@ -567,6 +632,9 @@ class MembershipRemoved(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.leaders_channel(self.github_data["organization"]["login"])]
 
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.PERSON_REMOVED)
+
     async def message(self) -> str:
         gh = self.github_data
         # If the user is being added to a team with the 'lead' word in the name, notify leads channel
@@ -584,6 +652,9 @@ class Public(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.EARTH)
+
     async def message(self) -> str:
         gh = self.github_data
         # Send a message to github-updates in the form of:
@@ -597,6 +668,9 @@ class Public(WebhookResponse):
 class RepositoryCreated(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
+
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.REPO)
 
     async def message(self) -> str:
         gh = self.github_data
@@ -612,6 +686,9 @@ class RepositoryDeleted(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.TRASH)
+
     async def message(self) -> str:
         gh = self.github_data
         # Send a message to github-updates in the form of:
@@ -625,6 +702,9 @@ class RepositoryDeleted(WebhookResponse):
 class RepositoryArchived(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
+
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.FADED_REPO)
 
     async def message(self) -> str:
         gh = self.github_data
@@ -640,6 +720,9 @@ class RepositoryUnarchived(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.REPO)
+
     async def message(self) -> str:
         gh = self.github_data
         # Send a message to github-updates in the form of:
@@ -653,6 +736,9 @@ class RepositoryUnarchived(WebhookResponse):
 class IssueCommentCreated(WebhookResponse):
     async def ignore(self) -> bool:
         return self.github_data["sender"]["login"] == "uf-mil-bot"
+
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.COMMENT)
 
     def targets(self) -> list[discord.TextChannel]:
         # Forwarding
@@ -695,6 +781,9 @@ class CheckSuiteCompleted(WebhookResponse):
             == self.github_data["repository"]["default_branch"]
         )
 
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.X)
+
     def targets(self) -> list[discord.TextChannel]:
         return [self.leaders_channel(self.github_data["repository"])]
 
@@ -728,6 +817,9 @@ class LabeledCreated(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.TAG)
+
     async def message(self) -> str:
         gh = self.github_data
         # Send a message to github-updates in the form of:
@@ -746,6 +838,9 @@ class LabelDeleted(WebhookResponse):
 
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
+
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.TAG)
 
     async def message(self) -> str:
         gh = self.github_data
@@ -804,6 +899,9 @@ class ProjectsV2ItemCreated(WebhookResponse):
         item = f'"{title}"'
         return f"{name} added a task ({task}) to {project}: {item}"
 
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.CALENDAR)
+
 
 @dataclass
 class ProjectsV2ItemEdited(WebhookResponse):
@@ -856,6 +954,9 @@ class ProjectsV2ItemEdited(WebhookResponse):
             }
             channels.append(self.bot.leads_project_channel(mappings[self.team_name]))
         return channels
+
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.CALENDAR)
 
     def after_send(self) -> None:
         self._project_v2_item_change_dates.pop(self.node_id)
@@ -960,6 +1061,9 @@ class ProjectsV2ItemDeleted(WebhookResponse):
         assert isinstance(self.channels, list)
         return self.channels[0]
 
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.CALENDAR)
+
     async def message(self) -> str:
         gh = self.github_data
         # This event is queued so that quick updates don't spam channels
@@ -993,6 +1097,9 @@ class ProjectsV2Created(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["organization"]["login"])]
 
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.PROJECT)
+
     async def message(self) -> str:
         gh = self.github_data
         # Send a message to github-updates in the form of:
@@ -1011,6 +1118,9 @@ class ProjectsV2Created(WebhookResponse):
 class ProjectsV2Deleted(WebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["organization"]["login"])]
+
+    def emoji(self) -> discord.Emoji | None:
+        return self.bot.emoji_registry.get_emoji(CustomEmoji.TRASH)
 
     async def message(self) -> str:
         gh = self.github_data
@@ -1050,7 +1160,13 @@ class Webhooks(commands.Cog):
                 if await wh.ignore():
                     return
                 for channel in wh.targets():
-                    await channel.send(await wh.message())
+                    message = await wh.message()
+                    emoji = wh.emoji()
+                    if emoji:
+                        # two spaces looks better
+                        await channel.send(f"{emoji}  {message}")
+                    else:
+                        await channel.send(message)
                 wh.after_send()
 
             # if delay requested, use task instead
