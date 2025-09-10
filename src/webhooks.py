@@ -12,9 +12,14 @@ import discord
 from discord.ext import commands
 from discord.ext.ipc.objects import ClientPayload
 from discord.ext.ipc.server import Server
+from discord.state import TextChannel
 
 from src.emoji import CustomEmoji
 from src.env import IPC_PORT
+
+from .env import (
+    LAB_DOOR_STATUS_CHANNEL_ID
+)
 
 if TYPE_CHECKING:
     from .bot import MILBot
@@ -1130,7 +1135,21 @@ class ProjectsV2Deleted(WebhookResponse):
         title = f"\"{gh['projects_v2']['title']}\""
         return f"{name} deleted a project {title}"
 
+# joe handsome make this hahah
+@dataclass
+class DoorToggled(WebhookResponse):
+    async def ignore(self) -> bool:
+        # check on config
+        assert not (LAB_DOOR_STATUS_CHANNEL_ID is None), "LAB_DOOR_STATUS_CHANNEL_ID must be non none for this web hook!"
 
+        # get the channel
+        channel = self.bot.get_channel(LAB_DOOR_STATUS_CHANNEL_ID)
+        assert isinstance(channel, TextChannel), "channel id should point to a text channel"
+
+        # update channel name based on request
+        await channel.edit(name=self.github_data["door_status"])
+        return True
+        
 class Webhooks(commands.Cog):
     def __init__(self, bot: MILBot):
         self.bot = bot
