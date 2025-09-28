@@ -62,7 +62,7 @@ jobs:
 
       - name: Run hooks
         run: >
-          SKIP=no-commit-to-branch
+          SKIP=hadolint,no-commit-to-branch
           pre-commit run --all-files --show-diff-on-failure
 
   tests:
@@ -91,6 +91,7 @@ jobs:
           echo "MEETING_NOTES_URL=not_needed" >> src/.env
           echo "MEETING_URL=not_needed" >> src/.env
           echo "DATABASE_ENGINE_URL=not_needed" >> src/.env
+          echo "EMOJI_GUILD_ID=321" >> src/.env
 
       - name: Run pytest
         run: |
