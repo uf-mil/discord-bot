@@ -13,6 +13,7 @@ SEMESTERS = [
     (datetime.date(2024, 9, 2), datetime.date(2024, 11, 24)),
     # vv Real start date is 1/13, but it is 1/20 for the first report week
     (datetime.date(2025, 2, 3), datetime.date(2025, 4, 27)),
+    (datetime.date(2025, 9, 15), datetime.date(2025, 11, 23)),
 ]
 SCHWARTZ_EMAIL = "ems@ufl.edu"
 

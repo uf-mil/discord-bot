@@ -24,6 +24,7 @@ from .anonymous import AnonymousReportView
 from .calendar import CalendarView
 from .constants import Team
 from .db import Base, DatabaseFactory
+from .emoji import EmojiRegistry
 from .env import (
     DATABASE_ENGINE_URL,
     DISCORD_TOKEN,
@@ -95,6 +96,7 @@ class MILBot(commands.Bot):
 
     # MIL server ref
     active_guild: discord.Guild
+    active_emoji_guild: discord.Guild
 
     # Channels
     leaders_channel: discord.TextChannel
@@ -141,6 +143,7 @@ class MILBot(commands.Bot):
     github: GitHub
     verifier: Verifier
     db_factory: DatabaseFactory
+    emoji_registry: EmojiRegistry
 
     def __init__(self):
         super().__init__(
@@ -152,6 +155,19 @@ class MILBot(commands.Bot):
         self.tasks = TaskManager(self)
         self._setup = asyncio.Event()
         self.verifier = Verifier()
+        self.emoji_registry = EmojiRegistry(self)
+
+    async def sync_emojis(self):
+        emojis = await self.active_emoji_guild.fetch_emojis()
+        missing_emojis = await self.emoji_registry.upload(emojis)
+        for missing_emoji in missing_emojis:
+            logger.info(f"Synchronized missing emoji: {missing_emoji.name}")
+            await self.active_emoji_guild.create_custom_emoji(
+                name=missing_emoji.name,
+                image=missing_emoji.image,
+                reason="Syncing emojis from registry",
+            )
+        self.emoji_registry.store_emojis(await self.active_emoji_guild.fetch_emojis())
 
     async def on_ready(self):
         print("Logged on as", self.user)
@@ -161,6 +177,7 @@ class MILBot(commands.Bot):
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         self.db_factory = DatabaseFactory(bot=self, engine=engine)
+        await self.sync_emojis()
         await self.fetch_vars()
         self.wiki = MILWiki(self)
         await self.wiki.login()
