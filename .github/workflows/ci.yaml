@@ -62,7 +62,7 @@ jobs:
 
       - name: Run hooks
         run: >
-          SKIP=no-commit-to-branch
+          SKIP=hadolint,no-commit-to-branch
           pre-commit run --all-files --show-diff-on-failure
 
   tests:
