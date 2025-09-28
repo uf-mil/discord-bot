@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import discord
 from discord.ext import commands, tasks
+from discord.errors import HTTPException
 
 from .constants import Team
 from .github.types import SoftwareProject, SoftwareProjectStatus
@@ -215,7 +216,7 @@ class SoftwareProjects(commands.Cog):
                 self.bot.active_guild.channels,
                 name=project.title,
             )
-            if not channel:
+            if not channel and len(self.bot.active_guild.channels) < 50:
                 role = await self.bot.active_guild.create_role(
                     name=project.title,
                     mentionable=False,

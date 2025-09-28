@@ -49,6 +49,8 @@ from .verification import Verifier
 from .welcome import WelcomeView
 from .wiki import MILWiki
 
+from .email import Email
+
 
 def get_creds():
     signer = crypt.RSASigner.from_service_account_info(

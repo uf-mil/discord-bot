@@ -451,6 +451,9 @@ class GitHub:
             ):
                 continue
             project = SoftwareProject(project_node)
+            project.emoji.strip()
+            if len(project.emoji) > 1:
+                project.emoji = "🤖"
             projects.append(project)
         projects.sort(key=lambda p: p.title)
         return projects
