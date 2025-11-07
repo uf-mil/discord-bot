@@ -7,6 +7,7 @@ import textwrap
 import traceback
 from typing import TYPE_CHECKING
 
+import chat_exporter
 import discord
 from discord.ext import commands
 
@@ -108,6 +109,34 @@ class Admin(commands.Cog):
                     await ctx.send(f"```py\n{value}\n```")
             else:
                 await ctx.send(f"```py\n{value}{ret}\n```")
+
+    @commands.command()
+    @commands.has_role("Primary Lead")
+    async def export(self, ctx: commands.Context):
+        await ctx.reply(f"{self.bot.loading_emoji} Exporting transcript...")
+        try:
+            transcript = await chat_exporter.export(
+                ctx.channel,
+                limit=10,
+                guild=ctx.guild,
+                tz_info="EST",
+                military_time=False,
+                fancy_times=False,
+                bot=self.bot,
+            )
+        except Exception as e:
+            await ctx.send(f"❌ An error occurred while exporting the transcript: {e}")
+            return
+
+        if transcript is None:
+            return
+
+        transcript_file = discord.File(
+            io.BytesIO(transcript.encode()),
+            filename=f"transcript-{ctx.channel.name}.html",
+        )
+
+        await ctx.send(file=transcript_file)
 
 
 async def setup(bot: MILBot):
