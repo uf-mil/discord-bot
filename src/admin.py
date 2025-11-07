@@ -117,7 +117,6 @@ class Admin(commands.Cog):
         try:
             transcript = await chat_exporter.export(
                 ctx.channel,
-                limit=10,
                 guild=ctx.guild,
                 tz_info="EST",
                 military_time=False,
