@@ -139,6 +139,30 @@ class Leaders(commands.Cog):
         )
 
     @commands.command()
+    @commands.has_any_role("Leaders")
+    async def set_semester(
+        self,
+        ctx: commands.Context,
+        start: str,
+        end: str
+    ):
+        """
+        Allow leaders to set an active semester.
+        """
+        # Check date formats
+        valid_start_date:   bool = False # Check that start months are reasonable: August, January, May 
+        valid_end_date:     bool = False # Check that the end date is reasonable: November/December, April/May, July/August 
+
+        if valid_start_date and valid_end_date:
+           
+            # Create grading sheet for semester
+
+            # Link grading sheet
+
+            pass
+
+
+    @commands.command()
     @commands.has_any_role("Software Leadership")
     async def runtask(
         self,
