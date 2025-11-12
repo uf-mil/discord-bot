@@ -28,6 +28,12 @@ def ensure_string(name: str, optional: bool = False) -> str | None:
         raise ValueError(f"Environment variable {name} is not set.")
     return value or ""
 
+def ensure_int(name: str, optional: bool = False) -> int | None:
+    value = os.getenv(name)
+    if value is None and not optional and ENV_REQUIRED:
+        raise ValueError(f"Environment variable {name} is not set.")
+    return int(value or 0) or 0
+
 
 GSPREAD_PRIVATE_KEY = ensure_string("GSPREAD_PRIVATE_KEY")
 GSPREAD_PRIVATE_KEY_ID = ensure_string("GSPREAD_PRIVATE_KEY_ID")
@@ -64,3 +70,6 @@ WEBHOOK_SERVER_PORT = ensure_string("WEBHOOK_SERVER_PORT", True)
 GITHUB_OAUTH_CLIENT_ID = ensure_string("GITHUB_OAUTH_CLIENT_ID", True)
 GITHUB_OAUTH_CLIENT_SECRET = ensure_string("GITHUB_OAUTH_CLIENT_SECRET", True)
 IPC_PORT = ensure_string("IPC_PORT", True)
+
+# joe handsome webhook
+LAB_DOOR_STATUS_CHANNEL_ID=ensure_int("LAB_DOOR_STATUS_CHANNEL_ID", True)
