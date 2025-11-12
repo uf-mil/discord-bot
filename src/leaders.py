@@ -139,6 +139,21 @@ class Leaders(commands.Cog):
         )
 
     @commands.command()
+    @commands.has_any_role("Leaders")
+    async def set_weekly_meeting(
+        self,
+        ctx: commands.Context,
+        day: str,
+        time: str,
+    ):
+        valid_day: bool = day.lowercase() in ["m", "Monday", "t", "tuesday", "w", "wednesday", "tr", "thursday", "f", "friday"]
+        valid_time: bool = False# Check the valid time string
+
+        if valid_day and valid_time:
+            # Create a chron job for sending the notifications within the scope of the semester.
+            pass
+
+    @commands.command()
     @commands.has_any_role("Software Leadership")
     async def runtask(
         self,
