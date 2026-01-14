@@ -22,8 +22,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-milpedia:
-    name: Build MILpedia Docker Image
+  build-image:
+    name: Build Docker Image
     runs-on: ubuntu-latest
     steps:
       - name: Check out code from GitHub
@@ -54,7 +54,7 @@ jobs:
               >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build and push MILpedia image
+      - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           platforms: linux/amd64, linux/arm64
