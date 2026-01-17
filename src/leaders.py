@@ -27,8 +27,8 @@ if TYPE_CHECKING:
     from .bot import MILBot
 
 
-MEETING_TIME = datetime.time(12, 50, 0)
-MEETING_DAY = calendar.THURSDAY
+MEETING_TIME = datetime.time(11, 30, 0)
+MEETING_DAY = calendar.WEDNESDAY
 
 # Workaround for calendar Month enum not being available in less than python3.12
 JANUARY = 1
