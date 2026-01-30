@@ -29,6 +29,30 @@ def ensure_string(name: str, optional: bool = False) -> str | None:
     return value or ""
 
 
+@overload
+def ensure_int(name: str, optional: Literal[False] = False) -> int: ...
+
+
+@overload
+def ensure_int(name: str, optional: Literal[True] = True) -> int | None: ...
+
+
+@overload
+def ensure_int(name: str, optional: bool) -> int | None: ...
+
+
+def ensure_int(name: str, optional: bool = False) -> int | None:
+    value = os.getenv(name)
+    if value is None or value == "":
+        if not optional and ENV_REQUIRED:
+            raise ValueError(f"Environment variable {name} is not set.")
+        return None
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise ValueError(f"Environment variable {name} must be an integer.") from exc
+
+
 GSPREAD_PRIVATE_KEY = ensure_string("GSPREAD_PRIVATE_KEY")
 GSPREAD_PRIVATE_KEY_ID = ensure_string("GSPREAD_PRIVATE_KEY_ID")
 GSPREAD_SERVICE_ACCOUNT_EMAIL = ensure_string("GSPREAD_SERVICE_ACCOUNT_EMAIL")
@@ -64,3 +88,6 @@ WEBHOOK_SERVER_PORT = ensure_string("WEBHOOK_SERVER_PORT", True)
 GITHUB_OAUTH_CLIENT_ID = ensure_string("GITHUB_OAUTH_CLIENT_ID", True)
 GITHUB_OAUTH_CLIENT_SECRET = ensure_string("GITHUB_OAUTH_CLIENT_SECRET", True)
 IPC_PORT = ensure_string("IPC_PORT", True)
+
+# Door status
+LAB_DOOR_STATUS_CHANNEL_ID = ensure_int("LAB_DOOR_STATUS_CHANNEL_ID", True)

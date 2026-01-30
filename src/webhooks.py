@@ -14,13 +14,65 @@ from discord.ext.ipc.objects import ClientPayload
 from discord.ext.ipc.server import Server
 
 from src.emoji import CustomEmoji
-from src.env import IPC_PORT
+from src.env import IPC_PORT, LAB_DOOR_STATUS_CHANNEL_ID
 
 if TYPE_CHECKING:
     from .bot import MILBot
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DoorWebHookResponse:
+    payload: dict[str, Any]
+    bot: MILBot
+    delay_sec: int = 0
+
+    @property
+    def concurrency_id(self) -> str:
+        return self.bot.tasks.unique_id()
+
+    async def ignore(self) -> bool:
+        return False
+
+    @abc.abstractmethod
+    async def handle(self) -> None:
+        raise NotImplementedError
+
+
+@dataclass
+class DoorToggled(DoorWebHookResponse):
+    async def ignore(self) -> bool:
+        if LAB_DOOR_STATUS_CHANNEL_ID is None:
+            logger.warning("LAB_DOOR_STATUS_CHANNEL_ID not set, skipping door update")
+            return True
+        return False
+
+    async def handle(self) -> None:
+        raw = str(self.payload.get("door_status", "")).strip().lower()
+        if not raw:
+            logger.warning("door_status missing in payload!")
+            return
+
+        if raw == "open":
+            text = "✅-lab-open"
+        elif raw == "closed":
+            text = "❌-lab-closed"
+        elif raw == "maybe":
+            text = "🤔-lab-maybe-open"
+        else:
+            text = f"Lab status: {raw}"
+
+        channel = self.bot.get_channel(LAB_DOOR_STATUS_CHANNEL_ID)
+        if channel is None:
+            channel = await self.bot.fetch_channel(LAB_DOOR_STATUS_CHANNEL_ID)
+
+        if not isinstance(channel, discord.TextChannel):
+            logger.warning("LAB_DOOR_STATUS_CHANNEL_ID is not a text channel")
+            return
+
+        await channel.edit(name=text)
 
 
 @dataclass
@@ -1144,6 +1196,11 @@ class Webhooks(commands.Cog):
             name = self.title_to_snake_case(subcls.__name__)
             self.ipc.route(name=name)(self.response_factory(subcls))
 
+        # Door webhook routes
+        for subcls in DoorWebHookResponse.__subclasses__():
+            name = self.title_to_snake_case(subcls.__name__)
+            self.ipc.route(name=name)(self.response_factory_door(subcls))
+
     def title_to_snake_case(self, title: str) -> str:
         return re.sub(r"(?<!^)(?=[A-Z])", "_", title).lower()
 
@@ -1177,6 +1234,29 @@ class Webhooks(commands.Cog):
                     datetime.timedelta(seconds=wh.delay_sec),
                     name=wh.concurrency_id,
                     coro=_post_coro,
+                )
+
+        return response
+
+    def response_factory_door(
+        self,
+        response_type: type[DoorWebHookResponse],
+    ) -> Callable[[Any, ClientPayload], Any]:
+        async def response(_: Any, payload: ClientPayload):
+            wh = response_type(payload.github_data, self.bot)
+
+            async def _handle_coro():
+                if await wh.ignore():
+                    return
+                await wh.handle()
+
+            if wh.delay_sec <= 0:
+                await _handle_coro()
+            else:
+                self.bot.tasks.run_in(
+                    datetime.timedelta(seconds=wh.delay_sec),
+                    name=wh.concurrency_id,
+                    coro=_handle_coro,
                 )
 
         return response
