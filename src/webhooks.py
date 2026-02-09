@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class DoorWebHookResponse:
+class DoorWebhookResponse:
     payload: dict[str, Any]
     bot: MILBot
     delay_sec: int = 0
@@ -42,28 +42,25 @@ class DoorWebHookResponse:
 
 
 @dataclass
-class DoorToggled(DoorWebHookResponse):
-    async def ignore(self) -> bool:
-        if LAB_DOOR_STATUS_CHANNEL_ID is None:
-            logger.warning("LAB_DOOR_STATUS_CHANNEL_ID not set, skipping door update")
-            return True
-        return False
+class DoorToggled(DoorWebhookResponse):
+
+    async def door_status(self) -> str | None:
+        return str(self.payload.get("door_status", "")).strip().lower()
 
     async def handle(self) -> None:
-        raw = str(self.payload.get("door_status", "")).strip().lower()
-        if not raw:
+
+        door_status = await self.door_status()
+
+        if not door_status:
             logger.warning("door_status missing in payload!")
             return
 
-        if raw == "open":
-            text = "✅-lab-open"
-        elif raw == "closed":
-            text = "❌-lab-closed"
-        elif raw == "maybe":
-            text = "🤔-lab-maybe-open"
-        else:
-            text = f"Lab status: {raw}"
+        channel_names = {
+            "open": "✅-lab-open",
+            "closed": "❌-lab-closed",
+        }
 
+        text = channel_names.get(door_status, "🤔-lab-maybe-open")
         channel = self.bot.get_channel(LAB_DOOR_STATUS_CHANNEL_ID)
         if channel is None:
             channel = await self.bot.fetch_channel(LAB_DOOR_STATUS_CHANNEL_ID)
@@ -1197,7 +1194,7 @@ class Webhooks(commands.Cog):
             self.ipc.route(name=name)(self.response_factory(subcls))
 
         # Door webhook routes
-        for subcls in DoorWebHookResponse.__subclasses__():
+        for subcls in DoorWebhookResponse.__subclasses__():
             name = self.title_to_snake_case(subcls.__name__)
             self.ipc.route(name=name)(self.response_factory_door(subcls))
 
@@ -1240,7 +1237,7 @@ class Webhooks(commands.Cog):
 
     def response_factory_door(
         self,
-        response_type: type[DoorWebHookResponse],
+        response_type: type[DoorWebhookResponse],
     ) -> Callable[[Any, ClientPayload], Any]:
         async def response(_: Any, payload: ClientPayload):
             wh = response_type(payload.github_data, self.bot)
