@@ -182,6 +182,23 @@ class RolesCog(commands.Cog):
             )
         return channel
 
+    def _get_text_channel_by_names(self, names, category=None):
+        attrs = {}
+        if category:
+            attrs["category"] = category
+        for name in names:
+            channel = discord.utils.get(
+                self.bot.active_guild.text_channels,
+                name=name,
+                **attrs,  # Optionally filter by category like "General" or "Software"
+            )
+            if channel:
+                return channel
+        names_list = ", ".join(f'"#{name}"' for name in names)
+        raise ValueError(
+            f"Channel {names_list} not found in guild {self.bot.active_guild.name}",
+        )
+
     def _get_category(self, name):
         category = discord.utils.get(self.bot.active_guild.categories, name=name)
         if not category:
@@ -213,6 +230,15 @@ class RolesCog(commands.Cog):
 
         for attr, name in text_channels.items():
             setattr(self.bot, attr, self._get_text_channel(name))
+
+        status_channel_names = [
+            "✅-lab-open",
+            "❌-lab-closed",
+            "🤔-lab-maybe-open",
+        ]
+        self.bot.lab_door_status_channel = self._get_text_channel_by_names(
+            status_channel_names,
+        )
 
     def _load_categories(self):
         categories = {

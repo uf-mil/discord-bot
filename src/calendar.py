@@ -555,7 +555,6 @@ class Calendar(commands.Cog):
             await channel.send(embed=embed, view=CalendarView(self.bot))
         else:
             await last_message[0].edit(embed=embed, view=CalendarView(self.bot))
-        await self.update_channel_name(events)
 
 
 async def setup(bot: MILBot):
