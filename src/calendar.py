@@ -442,23 +442,6 @@ class Calendar(commands.Cog):
                 return channel
         raise ValueError("No calendar channel found!")
 
-    def current_status(self, events: list[Event]) -> StatusChannelName:
-        for event in events:
-            if event.start < discord.utils.utcnow() < event.end and event.at_mil():
-                return StatusChannelName.OPEN
-        is_weekday = 0 <= datetime.datetime.now().weekday() <= 4
-        is_open_range = (
-            self.OPEN_HOURS[0] < datetime.datetime.now().time() < self.OPEN_HOURS[1]
-        )
-        if is_open_range and is_weekday:
-            return StatusChannelName.MAYBE
-        return StatusChannelName.CLOSED
-
-    async def update_channel_name(self, events: list[Event]) -> None:
-        channel = self.calendar_channel()
-        if channel.name != (new_name := self.current_status(events).value):
-            await channel.edit(name=new_name)
-
     def events_list_str(self, events: list[Event]) -> str:
         upcoming_events = [event for event in events if event.upcoming()]
         past_events = [event for event in events if not event.upcoming()]

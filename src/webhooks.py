@@ -48,9 +48,7 @@ class DoorToggled(DoorWebhookResponse):
         return str(self.payload.get("door_status", "")).strip().lower()
 
     async def handle(self) -> None:
-
         door_status = await self.door_status()
-
         if not door_status:
             logger.warning("door_status missing in payload!")
             return
@@ -59,15 +57,8 @@ class DoorToggled(DoorWebhookResponse):
             "open": "✅-lab-open",
             "closed": "❌-lab-closed",
         }
-
         text = channel_names.get(door_status, "🤔-lab-maybe-open")
-        channel = self.bot.lab_door_status_channel
-
-        if not isinstance(channel, discord.TextChannel):
-            logger.warning("lab_door_status_channel is not a text channel")
-            return
-
-        await channel.edit(name=text)
+        await self.bot.lab_door_status_channel.edit(name=text)
 
 
 @dataclass
