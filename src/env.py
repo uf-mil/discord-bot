@@ -29,14 +29,38 @@ def ensure_string(name: str, optional: bool = False) -> str | None:
     return value or ""
 
 
+@overload
+def ensure_int(name: str, optional: Literal[False] = False) -> int: ...
+
+
+@overload
+def ensure_int(name: str, optional: Literal[True] = True) -> int | None: ...
+
+
+@overload
+def ensure_int(name: str, optional: bool) -> int | None: ...
+
+
+def ensure_int(name: str, optional: bool = False) -> int | None:
+    value = os.getenv(name)
+    if value is None or value == "":
+        if not optional and ENV_REQUIRED:
+            raise ValueError(f"Environment variable {name} is not set.")
+        return None
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise ValueError(f"Environment variable {name} must be an integer.") from exc
+
+
 GSPREAD_PRIVATE_KEY = ensure_string("GSPREAD_PRIVATE_KEY")
 GSPREAD_PRIVATE_KEY_ID = ensure_string("GSPREAD_PRIVATE_KEY_ID")
 GSPREAD_SERVICE_ACCOUNT_EMAIL = ensure_string("GSPREAD_SERVICE_ACCOUNT_EMAIL")
 GSPREAD_TOKEN_URI = ensure_string("GSPREAD_TOKEN_URI")
 GSPREAD_SS_NAME = ensure_string("GSPREAD_SS_NAME")
 DISCORD_TOKEN = ensure_string("DISCORD_TOKEN")
-GUILD_ID = int(ensure_string("GUILD_ID"))
-EMOJI_GUILD_ID = int(ensure_string("EMOJI_GUILD_ID"))
+GUILD_ID = ensure_int("GUILD_ID")
+EMOJI_GUILD_ID = ensure_int("EMOJI_GUILD_ID")
 GITHUB_TOKEN = ensure_string("GITHUB_TOKEN")
 LEADERS_MEETING_NOTES_URL = ensure_string("MEETING_NOTES_URL")
 LEADERS_MEETING_URL = ensure_string("MEETING_URL")

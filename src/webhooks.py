@@ -24,7 +24,45 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class WebhookResponse:
+class DoorWebhookResponse:
+    payload: dict[str, Any]
+    bot: MILBot
+    delay_sec: int = 0
+
+    @property
+    def concurrency_id(self) -> str:
+        return self.bot.tasks.unique_id()
+
+    async def ignore(self) -> bool:
+        return False
+
+    @abc.abstractmethod
+    async def handle(self) -> None:
+        raise NotImplementedError
+
+
+@dataclass
+class DoorToggled(DoorWebhookResponse):
+
+    async def door_status(self) -> str | None:
+        return str(self.payload.get("door_status", "")).strip().lower()
+
+    async def handle(self) -> None:
+        door_status = await self.door_status()
+        if not door_status:
+            logger.warning("door_status missing in payload!")
+            return
+
+        channel_names = {
+            "open": "✅-lab-open",
+            "closed": "❌-lab-closed",
+        }
+        text = channel_names.get(door_status, "🤔-lab-maybe-open")
+        await self.bot.lab_door_status_channel.edit(name=text)
+
+
+@dataclass
+class GitHubWebhookResponse:
     github_data: dict[str, Any]
     # Bot
     bot: MILBot
@@ -196,7 +234,7 @@ class WebhookResponse:
 
 
 @dataclass
-class Push(WebhookResponse):
+class Push(GitHubWebhookResponse):
     __multicast__ = True
 
     async def ignore(self) -> bool:
@@ -271,7 +309,7 @@ class Push(WebhookResponse):
 
 
 @dataclass
-class StarCreated(WebhookResponse):
+class StarCreated(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
@@ -288,7 +326,7 @@ class StarCreated(WebhookResponse):
 
 
 @dataclass
-class IssuesOpened(WebhookResponse):
+class IssuesOpened(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         notify_channels = self.notify_channels(self.github_data["issue"]["labels"])
         return [self.updates_channel(self.github_data["repository"]), *notify_channels]
@@ -308,7 +346,7 @@ class IssuesOpened(WebhookResponse):
 
 
 @dataclass
-class IssuesClosed(WebhookResponse):
+class IssuesClosed(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         notify_channels = self.notify_channels(self.github_data["issue"]["labels"])
         return [self.updates_channel(self.github_data["repository"]), *notify_channels]
@@ -335,7 +373,7 @@ class IssuesClosed(WebhookResponse):
 
 
 @dataclass
-class OrganizationMemberInvited(WebhookResponse):
+class OrganizationMemberInvited(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.leaders_channel(self.github_data["organization"]["login"])]
 
@@ -363,7 +401,7 @@ class OrganizationMemberInvited(WebhookResponse):
 
 
 @dataclass
-class OrganizationMemberRemoved(WebhookResponse):
+class OrganizationMemberRemoved(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.leaders_channel(self.github_data["organization"]["login"])]
 
@@ -380,7 +418,7 @@ class OrganizationMemberRemoved(WebhookResponse):
 
 
 @dataclass
-class PullRequestOpened(WebhookResponse):
+class PullRequestOpened(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
@@ -399,7 +437,7 @@ class PullRequestOpened(WebhookResponse):
 
 
 @dataclass
-class PullRequestClosed(WebhookResponse):
+class PullRequestClosed(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
@@ -430,7 +468,7 @@ class PullRequestClosed(WebhookResponse):
 
 
 @dataclass
-class PullRequestReviewRequested(WebhookResponse):
+class PullRequestReviewRequested(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
@@ -451,7 +489,7 @@ class PullRequestReviewRequested(WebhookResponse):
 
 
 @dataclass
-class PullRequestReviewSubmitted(WebhookResponse):
+class PullRequestReviewSubmitted(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
@@ -480,7 +518,7 @@ class PullRequestReviewSubmitted(WebhookResponse):
 
 
 @dataclass
-class CommitComment(WebhookResponse):
+class CommitComment(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
@@ -500,7 +538,7 @@ class CommitComment(WebhookResponse):
 
 
 @dataclass
-class IssuesCommentCreated(WebhookResponse):
+class IssuesCommentCreated(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
@@ -520,7 +558,7 @@ class IssuesCommentCreated(WebhookResponse):
 
 
 @dataclass
-class IssuesAssigned(WebhookResponse):
+class IssuesAssigned(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
@@ -546,7 +584,7 @@ class IssuesAssigned(WebhookResponse):
 
 
 @dataclass
-class IssuesUnassigned(WebhookResponse):
+class IssuesUnassigned(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
@@ -571,7 +609,7 @@ class IssuesUnassigned(WebhookResponse):
 
 
 @dataclass
-class PullRequestEdited(WebhookResponse):
+class PullRequestEdited(GitHubWebhookResponse):
     async def ignore(self) -> bool:
         return not (
             "title" in self.github_data["changes"]
@@ -596,7 +634,7 @@ class PullRequestEdited(WebhookResponse):
 
 
 @dataclass
-class MembershipAdded(WebhookResponse):
+class MembershipAdded(GitHubWebhookResponse):
     async def ignore(self) -> bool:
         return not any(
             team_name in self.github_data["team"]["name"].lower()
@@ -622,7 +660,7 @@ class MembershipAdded(WebhookResponse):
 
 
 @dataclass
-class MembershipRemoved(WebhookResponse):
+class MembershipRemoved(GitHubWebhookResponse):
     async def ignore(self) -> bool:
         return not any(
             team_name in self.github_data["team"]["name"].lower()
@@ -648,7 +686,7 @@ class MembershipRemoved(WebhookResponse):
 
 
 @dataclass
-class Public(WebhookResponse):
+class Public(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
@@ -665,7 +703,7 @@ class Public(WebhookResponse):
 
 
 @dataclass
-class RepositoryCreated(WebhookResponse):
+class RepositoryCreated(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
@@ -682,7 +720,7 @@ class RepositoryCreated(WebhookResponse):
 
 
 @dataclass
-class RepositoryDeleted(WebhookResponse):
+class RepositoryDeleted(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
@@ -699,7 +737,7 @@ class RepositoryDeleted(WebhookResponse):
 
 
 @dataclass
-class RepositoryArchived(WebhookResponse):
+class RepositoryArchived(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
@@ -716,7 +754,7 @@ class RepositoryArchived(WebhookResponse):
 
 
 @dataclass
-class RepositoryUnarchived(WebhookResponse):
+class RepositoryUnarchived(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["repository"])]
 
@@ -733,7 +771,7 @@ class RepositoryUnarchived(WebhookResponse):
 
 
 @dataclass
-class IssueCommentCreated(WebhookResponse):
+class IssueCommentCreated(GitHubWebhookResponse):
     async def ignore(self) -> bool:
         return self.github_data["sender"]["login"] == "uf-mil-bot"
 
@@ -773,7 +811,7 @@ class IssueCommentCreated(WebhookResponse):
 
 
 @dataclass
-class CheckSuiteCompleted(WebhookResponse):
+class CheckSuiteCompleted(GitHubWebhookResponse):
     async def ignore(self) -> bool:
         return not (
             self.github_data["check_suite"]["conclusion"] == "failure"
@@ -810,7 +848,7 @@ class CheckSuiteCompleted(WebhookResponse):
 
 
 @dataclass
-class LabeledCreated(WebhookResponse):
+class LabeledCreated(GitHubWebhookResponse):
     async def ignore(self) -> bool:
         return self.github_data["label"]["name"].endswith("-notify")
 
@@ -832,7 +870,7 @@ class LabeledCreated(WebhookResponse):
 
 
 @dataclass
-class LabelDeleted(WebhookResponse):
+class LabelDeleted(GitHubWebhookResponse):
     async def ignore(self) -> bool:
         return self.github_data["label"]["name"].endswith("-notify")
 
@@ -854,7 +892,7 @@ class LabelDeleted(WebhookResponse):
 
 
 @dataclass
-class ProjectsV2ItemCreated(WebhookResponse):
+class ProjectsV2ItemCreated(GitHubWebhookResponse):
     pvt_done: bool = False
 
     async def pvt(self) -> None:
@@ -904,7 +942,7 @@ class ProjectsV2ItemCreated(WebhookResponse):
 
 
 @dataclass
-class ProjectsV2ItemEdited(WebhookResponse):
+class ProjectsV2ItemEdited(GitHubWebhookResponse):
     delay_sec: int = 30
 
     def __post_init__(self):
@@ -1003,7 +1041,7 @@ class ProjectsV2ItemEdited(WebhookResponse):
 
 
 @dataclass
-class ProjectsV2ItemDeleted(WebhookResponse):
+class ProjectsV2ItemDeleted(GitHubWebhookResponse):
     delay_sec: int = 30
     pvt_set: bool = False
 
@@ -1088,7 +1126,7 @@ class ProjectsV2ItemDeleted(WebhookResponse):
 
 
 @dataclass
-class ProjectsV2Created(WebhookResponse):
+class ProjectsV2Created(GitHubWebhookResponse):
     # All projects_v2_created webhooks have the project title listed as
     # @user's untitled project, so we should wait a little bit of time
     # and then fetch the title later
@@ -1115,7 +1153,7 @@ class ProjectsV2Created(WebhookResponse):
 
 
 @dataclass
-class ProjectsV2Deleted(WebhookResponse):
+class ProjectsV2Deleted(GitHubWebhookResponse):
     def targets(self) -> list[discord.TextChannel]:
         return [self.updates_channel(self.github_data["organization"]["login"])]
 
@@ -1140,16 +1178,21 @@ class Webhooks(commands.Cog):
             secret_key="37",
         )
         # Construct routes
-        for subcls in WebhookResponse.__subclasses__():
+        for subcls in GitHubWebhookResponse.__subclasses__():
             name = self.title_to_snake_case(subcls.__name__)
             self.ipc.route(name=name)(self.response_factory(subcls))
+
+        # Door webhook routes
+        for subcls in DoorWebhookResponse.__subclasses__():
+            name = self.title_to_snake_case(subcls.__name__)
+            self.ipc.route(name=name)(self.response_factory_door(subcls))
 
     def title_to_snake_case(self, title: str) -> str:
         return re.sub(r"(?<!^)(?=[A-Z])", "_", title).lower()
 
     def response_factory(
         self,
-        response_type: type[WebhookResponse],
+        response_type: type[GitHubWebhookResponse],
     ) -> Callable[[Any, ClientPayload], Any]:
         # _ is for the presupposed self parameter, but since this isn't in our
         # main class, we don't need it for anything
@@ -1177,6 +1220,29 @@ class Webhooks(commands.Cog):
                     datetime.timedelta(seconds=wh.delay_sec),
                     name=wh.concurrency_id,
                     coro=_post_coro,
+                )
+
+        return response
+
+    def response_factory_door(
+        self,
+        response_type: type[DoorWebhookResponse],
+    ) -> Callable[[Any, ClientPayload], Any]:
+        async def response(_: Any, payload: ClientPayload):
+            wh = response_type(payload.github_data, self.bot)
+
+            async def _handle_coro():
+                if await wh.ignore():
+                    return
+                await wh.handle()
+
+            if wh.delay_sec <= 0:
+                await _handle_coro()
+            else:
+                self.bot.tasks.run_in(
+                    datetime.timedelta(seconds=wh.delay_sec),
+                    name=wh.concurrency_id,
+                    coro=_handle_coro,
                 )
 
         return response

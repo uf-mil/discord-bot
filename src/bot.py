@@ -117,6 +117,7 @@ class MILBot(commands.Bot):
     electrical_leaders_channel: discord.TextChannel
     mechanical_leaders_channel: discord.TextChannel
     message_log_channel: discord.TextChannel
+    lab_door_status_channel: discord.TextChannel
 
     # Emojis
     loading_emoji: str
