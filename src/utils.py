@@ -26,6 +26,8 @@ def surround(s: str, start: int, end: int, surround_with: str) -> str:
     """
     Surrounds a part of a string with some characters.
     """
+    if start >= end:
+        raise ValueError("start must be less than end")
     return s[:start] + surround_with + s[start:end] + surround_with + s[end:]
 
 
@@ -41,7 +43,27 @@ def is_active() -> bool:
     return False
 
 
+def has_emoji(s: str) -> bool:
+    emoji_pattern = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"  # emoticons
+        "\U0001F300-\U0001F5FF"  # symbols & pictographs
+        "\U0001F680-\U0001F6FF"  # transport & map symbols
+        "\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        "\U00002700-\U000027BF"  # Dingbats
+        "\U0001F900-\U0001F9FF"  # Supplemental Symbols and Pictographs
+        "\U00002600-\U000026FF"  # Miscellaneous Symbols
+        "\U00002B00-\U00002BFF"  # Miscellaneous Symbols and Arrows
+        "\U0001FA70-\U0001FAFF"  # Symbols and Pictographs Extended-A
+        "]+",
+        flags=re.UNICODE,
+    )
+    return bool(emoji_pattern.fullmatch(s))
+
+
 def emoji_header(emoji: str, title: str) -> str:
+    if not has_emoji(emoji):
+        raise ValueError(f"{emoji} is not a valid emoji")
     return f"{emoji} __{title}__"
 
 
