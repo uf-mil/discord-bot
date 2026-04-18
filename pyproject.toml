@@ -1,0 +1,6 @@
+[project]
+authors = [
+  {name = "Cameron Brown", email = "me@cbrxyz.com"},
+]
+version = "1.0.0"
+name = "discord-bot"
