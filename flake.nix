@@ -32,8 +32,12 @@
 
     packages = forEachSystem (
       pkgs:
-      {
+      let
         discord-bot = pkgs.callPackage ./nix/pkgs/discord-bot.nix { inherit pkgs ; };
+      in
+      {
+        default = discord-bot;
+        image = pkgs.callPackage ./nix/pkgs/image.nix { inherit pkgs discord-bot ; };
       }
     );
   };

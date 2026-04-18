@@ -71,7 +71,7 @@ let
     ];
   });
 in
-buildPythonPackage rec {
+python3Packages.buildPythonApplication {
   version = "1.0.0";
   pname = "discord-bot";
   src = ../../.;
@@ -100,4 +100,8 @@ buildPythonPackage rec {
   build-system = [
     python3Packages.setuptools
   ];
+
+  meta = {
+    mainProgram = "discord-bot";
+  };
 }
