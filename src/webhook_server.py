@@ -13,7 +13,7 @@ logger = getLogger(__name__)
 
 
 @app.route("/", methods=["POST"])
-async def main():
+async def run():
     # Get headers
     data = await request.get_json()
     event_type = request.headers.get("X-GitHub-Event")
@@ -29,8 +29,12 @@ async def main():
     return {"succeeded": True}
 
 
-if __name__ == "__main__":
+def main():
     app.run(
         host="0.0.0.0",
         port=int(WEBHOOK_SERVER_PORT) if WEBHOOK_SERVER_PORT else None,
     )
+
+
+if __name__ == "__main__":
+    main()

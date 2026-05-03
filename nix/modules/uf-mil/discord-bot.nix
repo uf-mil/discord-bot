@@ -141,5 +141,6 @@ in
         Group = cfg.group;
       };
     };
+    networking.firewall.allowedTCPPorts = lib.mkIf cfg.webhookServer.enable [ cfg.webhookServer.port ];
   };
 }
