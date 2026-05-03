@@ -112,5 +112,5 @@ jobs:
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build .#discord-bot
-        run: nix build .#discord-bot --no-link
+      - name: Build .
+        run: nix build . --no-link
