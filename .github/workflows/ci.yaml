@@ -114,3 +114,8 @@ jobs:
 
       - name: Build .
         run: nix build . --no-link
+
+      - name: Upload build result
+        uses: actions/upload-artifact@v3.1.2
+        with:
+          path: ./result/bin/*
