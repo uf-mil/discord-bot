@@ -28,8 +28,15 @@
     );
   in
   {
-    nixosModules = ./modules;
+    nixosModules.default = ./nix/modules/uf-mil/discord-bot.nix;
+    nixosModules.uf-mil.discord-bot = ./nix/modules/uf-mil/discord-bot.nix;
 
+    checks = forEachSystem (
+      pkgs:
+      {
+        default = pkgs.callPackage ./nix/tests/discord-bot.nix { inherit pkgs ; };
+      }
+    );
     packages = forEachSystem (
       pkgs:
       let

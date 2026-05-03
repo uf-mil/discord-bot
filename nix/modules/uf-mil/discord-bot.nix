@@ -1,15 +1,20 @@
 {
   config,
-  lib
+  lib,
+  pkgs,
+  ...
 }:
 let
   cfg = config.uf-mil.discord-bot;
+  discord-bot = pkgs.callPackage ../../pkgs/discord-bot.nix { inherit pkgs ; };
   webhookServerOptions = {
-    enable = lib.mkEnableOption "Whether to enable the webhook server for responding to incoming webhooks.";
-    port = lib.mkOption {
-      type = lib.types.int;
-      default = 8087;
-      description = "The port on which the webhook server should listen.";
+    options = {
+      enable = lib.mkEnableOption "Whether to enable the webhook server for responding to incoming webhooks.";
+      port = lib.mkOption {
+        type = lib.types.int;
+        default = 8087;
+        description = "The port on which the webhook server should listen.";
+      };
     };
   };
 in
@@ -25,6 +30,16 @@ in
       type = lib.types.str;
       default = "uf-mil-bot";
       description = "The group under which the Discord bot will run.";
+    };
+    path = lib.mkOption {
+      type = lib.types.str;
+      default = "/var/lib/uf-mil-discord-bot";
+      description = "The path where the Discord bot will be installed.";
+    };
+    package = lib.mkOption {
+      type = lib.types.package;
+      description = "The package that provides the Discord bot executable.";
+      default = discord-bot;
     };
     discordToken = lib.mkOption {
       type = lib.types.str;
@@ -121,10 +136,6 @@ in
       description = "The client secret for GitHub OAuth authentication.";
       default = null;
     };
-    databaseEngineUrl = lib.mkOption {
-      type = lib.types.str;
-      description = "The URL for the database engine (e.g., PostgreSQL) used by the bot.";
-    };
     wikiUsername = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       description = "The username for wiki authentication.";
@@ -147,6 +158,7 @@ in
       after = [ "network.target" ];
       wants = [ "network.target" ];
       environment = {
+        DATABASE_ENGINE_URL = "sqlite+aiosqlite:///data/bot.db";
         DISCORD_TOKEN = cfg.discordToken;
         ELECTRICAL_MEETINGS_CALENDAR = cfg.electricalMeetingNotesUrl;
         ELECTRICAL_OH_CALENDAR = cfg.electricalOfficeHoursUrl;
@@ -173,6 +185,8 @@ in
         WIKI_PASSWORD = cfg.wikiPassword;
       };
       serviceConfig = {
+        # Make the database file if not already
+        ExecStartPre = "mkdir -p ${cfg.path}/data && touch ${cfg.path}/data/bot.db && chown -R ${cfg.user}:${cfg.group} ${cfg.path}";
         ExecStart = "${config.uf-mil.discord-bot.package}/bin/discord-bot";
         Restart = "always";
         User = cfg.user;
