@@ -66,6 +66,36 @@ in
       type = lib.types.str;
       description = "The URL of the meeting.";
     };
+    softwareMeetingNotesUrl = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      description = "The URL of the software meeting notes document.";
+      default = null;
+    };
+    softwareOfficeHoursUrl = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      description = "The URL of the software office hours document.";
+      default = null;
+    };
+    electricalMeetingNotesUrl = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      description = "The URL of the electrical meeting notes document.";
+      default = null;
+    };
+    electricalOfficeHoursUrl = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      description = "The URL of the electrical office hours document.";
+      default = null;
+    };
+    mechanicalMeetingNotesUrl = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      description = "The URL of the mechanical meeting notes document.";
+      default = null;
+    };
+    mechanicalOfficeHoursUrl = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      description = "The URL of the mechanical office hours document.";
+      default = null;
+    };
     emailUsername = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       description = "The username for email notifications.";
@@ -118,7 +148,29 @@ in
       wants = [ "network.target" ];
       environment = {
         DISCORD_TOKEN = cfg.discordToken;
+        ELECTRICAL_MEETINGS_CALENDAR = cfg.electricalMeetingNotesUrl;
+        ELECTRICAL_OH_CALENDAR = cfg.electricalOfficeHoursUrl;
+        EMAIL_USERNAME = cfg.emailUsername;
+        EMAIL_PASSWORD = cfg.emailPassword;
+        GITHUB_OAUTH_CLIENT_ID = cfg.githubOauthClientId;
+        GITHUB_OAUTH_CLIENT_SECRET = cfg.githubOauthClientSecret;
+        GITHUB_TOKEN = cfg.githubToken;
+        GSPREAD_PRIVATE_KEY = cfg.gspreadPrivateKey;
+        GSPREAD_PRIVATE_KEY_ID = cfg.gspreadPrivateKeyId;
+        GSPREAD_SERVICE_ACCOUNT_EMAIL = cfg.gspreadServiceAccountEmail;
+        GSPREAD_SPREADSHEET_NAME = cfg.gspreadSpreadsheetName;
+        GSPREAD_TOKEN_URI = cfg.gspreadTokenUri;
         GUILD_ID = cfg.guildId;
+        IPC_PORT = toString cfg.ipcPort;
+        LEADERS_MEETING_NOTES_URL = cfg.meetingNotesUrl;
+        LEADERS_MEETING_URL = cfg.meetingUrl;
+        MECHANICAL_MEETINGS_CALENDAR = cfg.mechanicalMeetingNotesUrl;
+        MECHANICAL_OH_CALENDAR = cfg.mechanicalOfficeHoursUrl;
+        SOFTWARE_MEETINGS_CALENDAR = cfg.softwareMeetingNotesUrl;
+        SOFTWARE_OH_CALENDAR = cfg.softwareOfficeHoursUrl;
+        WEBHOOK_SERVER_PORT = toString cfg.webhookServer.port;
+        WIKI_USERNAME = cfg.wikiUsername;
+        WIKI_PASSWORD = cfg.wikiPassword;
       };
       serviceConfig = {
         ExecStart = "${config.uf-mil.discord-bot.package}/bin/discord-bot";
