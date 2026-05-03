@@ -99,3 +99,18 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
           pytest --disable-warnings
+
+  nix:
+    name: Nix build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build .#discord-bot
+        run: nix build .#discord-bot --no-link
