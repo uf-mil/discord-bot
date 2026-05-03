@@ -369,7 +369,7 @@ async def sync(ctx):
     )
 
 
-async def main():
+async def run():
     KB = 1024
     MB = 1024 * KB
     handler = logging.handlers.RotatingFileHandler(
@@ -388,4 +388,9 @@ async def main():
         await bot.start(token=DISCORD_TOKEN)
 
 
-asyncio.run(main())
+def main():
+    asyncio.run(run())
+
+
+if __name__ == "__main__":
+    main()

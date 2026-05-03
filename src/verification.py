@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import discord
 
-from .email import Email
+from .email_client import Email
 from .roles import TeamRolesView
 from .views import MILBotModal, MILBotView
 

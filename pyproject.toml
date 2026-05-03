@@ -4,3 +4,6 @@ authors = [
 ]
 version = "1.0.0"
 name = "discord-bot"
+
+[project.scripts]
+discord-bot = "src.bot:main"

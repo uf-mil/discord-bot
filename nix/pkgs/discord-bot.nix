@@ -70,13 +70,42 @@ let
       urllib3
     ];
   });
+
+  py-discord-html-transcripts = buildPythonPackage (finalAttrs: {
+    version = "2.3.1";
+    pname = "py-discord-html-transcripts";
+    src = fetchFromGitHub {
+      owner = "FroostySnoowman";
+      repo = "py-discord-html-transcripts";
+      rev = "4e3736095eaaf843df3b35f8ff65d68803013d29";
+      hash = "sha256-39nU2eOq5264i8P3Fy7JiG+0/vT+SzaRRx+lC6iBL+A=";
+    };
+    # "grapheme" package isn't installed (because it isn't available in nixpkgs
+    # due to being unmaintained); graphemeu is a fine replacement though
+    # (same importable module name)
+    postPatch = ''
+      substituteInPlace pyproject.toml \
+        --replace-fail "grapheme" "graphemeu"
+    '';
+
+    pyproject = true;
+    build-system = with python3Packages; [
+      setuptools
+    ];
+    dependencies = with python3Packages; [
+      aiohttp
+      pytz
+      graphemeu
+      emoji
+    ];
+  });
 in
 python3Packages.buildPythonApplication {
   version = "1.0.0";
   pname = "discord-bot";
   src = ../../.;
 
-  buildInputs = with python3Packages; [
+  dependencies = with python3Packages; [
     discordpy
     aiohttp
     icalendar
@@ -93,12 +122,12 @@ python3Packages.buildPythonApplication {
     pytest-asyncio
     quart
     cairosvg
+    py-discord-html-transcripts
   ];
 
-  doCheck = false;
   pyproject = true;
-  build-system = [
-    python3Packages.setuptools
+  build-system = with python3Packages; [
+    setuptools
   ];
 
   meta = {

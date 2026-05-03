@@ -4,7 +4,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from ..constants import SCHWARTZ_EMAIL
-from ..email import Email
+from ..email_client import Email
 from .sheets import Student
 
 if TYPE_CHECKING:

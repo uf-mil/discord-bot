@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Literal
 import discord
 
 from .constants import SCHWARTZ_EMAIL
-from .email import Email
+from .email_client import Email
 from .views import MILBotModal, MILBotView
 
 if TYPE_CHECKING:
