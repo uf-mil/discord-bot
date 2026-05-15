@@ -153,7 +153,14 @@ in
     };
   };
   config = lib.mkIf cfg.enable {
-    systemd.services.discord-bot = {
+    users.users.${cfg.user} = {
+      isSystemUser = true;
+      home = cfg.path;
+      createHome = true;
+      group = cfg.group;
+    };
+    users.groups.${cfg.group} = {};
+    systemd.services.uf-mil-discord-bot = {
       description = "Discord Bot Service";
       after = [ "network.target" ];
       wants = [ "network.target" ];
@@ -184,16 +191,20 @@ in
         WIKI_USERNAME = cfg.wikiUsername;
         WIKI_PASSWORD = cfg.wikiPassword;
       };
-      serviceConfig = {
+      preStart = ''
         # Make the database file if not already
-        ExecStartPre = "mkdir -p ${cfg.path}/data && touch ${cfg.path}/data/bot.db && chown -R ${cfg.user}:${cfg.group} ${cfg.path}";
+        mkdir -p ${cfg.path}/data
+        touch ${cfg.path}/data/bot.db
+        chown -R ${cfg.user}:${cfg.group} ${cfg.path}
+      '';
+      serviceConfig = {
         ExecStart = "${config.uf-mil.discord-bot.package}/bin/discord-bot";
         Restart = "always";
         User = cfg.user;
         Group = cfg.group;
       };
     };
-    systemd.services.discord-bot-webhook-server = lib.mkIf cfg.webhookServer.enable {
+    systemd.services.uf-mil-discord-bot-webhook-server = lib.mkIf cfg.webhookServer.enable {
       description = "Discord Bot Webhook Server";
       after = [ "network.target" ];
       wants = [ "network.target" ];

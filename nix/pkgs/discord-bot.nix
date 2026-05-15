@@ -103,7 +103,10 @@ in
 python3Packages.buildPythonApplication {
   version = "1.0.0";
   pname = "discord-bot";
-  src = ../../.;
+  src = builtins.path {
+    path = ../../.;
+    name = "discord-bot";
+  };
 
   dependencies = with python3Packages; [
     discordpy

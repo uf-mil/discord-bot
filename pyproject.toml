@@ -5,6 +5,9 @@ authors = [
 version = "1.0.0"
 name = "discord-bot"
 
+[tool.setuptools]
+packages = ["src"]
+
 [project.scripts]
 discord-bot = "src.bot:main"
 discord-bot-webhook-server = "src.webhook_server:main"
