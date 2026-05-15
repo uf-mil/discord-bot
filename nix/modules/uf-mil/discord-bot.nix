@@ -177,7 +177,7 @@ in
         GSPREAD_PRIVATE_KEY = cfg.gspreadPrivateKey;
         GSPREAD_PRIVATE_KEY_ID = cfg.gspreadPrivateKeyId;
         GSPREAD_SERVICE_ACCOUNT_EMAIL = cfg.gspreadServiceAccountEmail;
-        GSPREAD_SPREADSHEET_NAME = cfg.gspreadSpreadsheetName;
+        GSPREAD_SS_NAME = cfg.gspreadSpreadsheetName;
         GSPREAD_TOKEN_URI = cfg.gspreadTokenUri;
         GUILD_ID = cfg.guildId;
         IPC_PORT = toString cfg.ipcPort;
