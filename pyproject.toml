@@ -6,7 +6,7 @@ version = "1.0.0"
 name = "discord-bot"
 
 [tool.setuptools]
-packages = ["src"]
+packages = ["src", "src.github", "src.reports", "src.assets"]
 
 [project.scripts]
 discord-bot = "src.bot:main"

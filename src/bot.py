@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import argparse
 import datetime
 import logging
 import logging.handlers
@@ -256,9 +257,13 @@ class MILBot(commands.Bot):
         self.add_view(AwayView(self))
         self.add_view(StartReviewView(self))
 
-        agcm = gspread_asyncio.AsyncioGspreadClientManager(get_creds)
-        self.agc = await agcm.authorize()
-        self.sh = await self.agc.open(GSPREAD_SS_NAME)
+        try:
+            agcm = gspread_asyncio.AsyncioGspreadClientManager(get_creds)
+            self.agc = await agcm.authorize()
+            self.sh = await self.agc.open(GSPREAD_SS_NAME)
+        except Exception as e:
+            logger.error("Failed to set up Google Sheets client!")
+            traceback.print_exc()
 
     async def fetch_vars(self) -> None:
         reports_cog = self.get_cog("ReportsCog")
@@ -369,11 +374,13 @@ async def sync(ctx):
     )
 
 
-async def run():
+async def run(log_dir: str = "logs"):
     KB = 1024
     MB = 1024 * KB
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
     handler = logging.handlers.RotatingFileHandler(
-        filename="mil-bot.log",
+        filename=f"{log_dir}/bot.log",
         encoding="utf-8",
         maxBytes=32 * MB,
         backupCount=5,
@@ -389,7 +396,10 @@ async def run():
 
 
 def main():
-    asyncio.run(run())
+    parser = argparse.ArgumentParser(description="Run the MIL Discord bot.")
+    parser.add_argument("--log-dir", type=str, default="logs", help="Directory to write log files to.")
+    args = parser.parse_args()
+    asyncio.run(run(args.log_dir))
 
 
 if __name__ == "__main__":

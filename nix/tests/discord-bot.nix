@@ -14,6 +14,7 @@ pkgs.testers.runNixOSTest {
       uf-mil.discord-bot = {
         enable = true;
         discordToken = builtins.getEnv "DISCORD_TOKEN";
+        emojiGuildId = builtins.getEnv "EMOJI_GUILD_ID";
         guildId = builtins.getEnv "GUILD_ID";
         gspreadPrivateKey = builtins.getEnv "GSPREAD_PRIVATE_KEY";
         gspreadPrivateKeyId = builtins.getEnv "GSPREAD_PRIVATE_KEY_ID";
@@ -28,6 +29,9 @@ pkgs.testers.runNixOSTest {
   };
   testScript = {...}: ''
     machine.wait_for_unit("default.target")
-    machine.wait_for_unit("discord-bot.service")
+    machine.wait_for_unit("uf-mil-discord-bot.service")
+
+    with subtest("bot can connects"):
+      machine.succeed("journalctl -u uf-mil-discord-bot | grep -q -i 'Logged on as'")
   '';
 }

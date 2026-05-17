@@ -45,6 +45,10 @@ in
       type = lib.types.str;
       description = "The token for the Discord bot.";
     };
+    emojiGuildId = lib.mkOption {
+      type = lib.types.str;
+      description = "The ID of the emoji Discord guild (server) the bot will use for emojis.";
+    };
     guildId = lib.mkOption {
       type = lib.types.str;
       description = "The ID of the Discord guild (server) the bot will operate in.";
@@ -171,6 +175,7 @@ in
         ELECTRICAL_OH_CALENDAR = cfg.electricalOfficeHoursUrl;
         EMAIL_USERNAME = cfg.emailUsername;
         EMAIL_PASSWORD = cfg.emailPassword;
+        EMOJI_GUILD_ID = cfg.emojiGuildId;
         GITHUB_OAUTH_CLIENT_ID = cfg.githubOauthClientId;
         GITHUB_OAUTH_CLIENT_SECRET = cfg.githubOauthClientSecret;
         GITHUB_TOKEN = cfg.githubToken;
@@ -181,8 +186,8 @@ in
         GSPREAD_TOKEN_URI = cfg.gspreadTokenUri;
         GUILD_ID = cfg.guildId;
         IPC_PORT = toString cfg.ipcPort;
-        LEADERS_MEETING_NOTES_URL = cfg.meetingNotesUrl;
-        LEADERS_MEETING_URL = cfg.meetingUrl;
+        MEETING_NOTES_URL = cfg.meetingNotesUrl;
+        MEETING_URL = cfg.meetingUrl;
         MECHANICAL_MEETINGS_CALENDAR = cfg.mechanicalMeetingNotesUrl;
         MECHANICAL_OH_CALENDAR = cfg.mechanicalOfficeHoursUrl;
         SOFTWARE_MEETINGS_CALENDAR = cfg.softwareMeetingNotesUrl;
@@ -198,7 +203,7 @@ in
         chown -R ${cfg.user}:${cfg.group} ${cfg.path}
       '';
       serviceConfig = {
-        ExecStart = "${config.uf-mil.discord-bot.package}/bin/discord-bot";
+        ExecStart = "${config.uf-mil.discord-bot.package}/bin/discord-bot --log-dir ${cfg.path}/logs";
         Restart = "always";
         User = cfg.user;
         Group = cfg.group;
