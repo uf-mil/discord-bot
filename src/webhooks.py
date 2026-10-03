@@ -40,9 +40,9 @@ class DoorWebhookResponse:
     async def handle(self) -> None:
         raise NotImplementedError
 
-
+'''
 @dataclass
-class DoorToggled(DoorWebhookResponse):
+class (DoorWebhookResponse):
 
     async def door_status(self) -> str | None:
         return str(self.payload.get("door_status", "")).strip().lower()
@@ -59,7 +59,7 @@ class DoorToggled(DoorWebhookResponse):
         }
         text = channel_names.get(door_status, "🤔-lab-maybe-open")
         await self.bot.lab_door_status_channel.edit(name=text)
-
+'''
 
 @dataclass
 class GitHubWebhookResponse:
