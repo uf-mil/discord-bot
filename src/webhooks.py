@@ -24,44 +24,6 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class DoorWebhookResponse:
-    payload: dict[str, Any]
-    bot: MILBot
-    delay_sec: int = 0
-
-    @property
-    def concurrency_id(self) -> str:
-        return self.bot.tasks.unique_id()
-
-    async def ignore(self) -> bool:
-        return False
-
-    @abc.abstractmethod
-    async def handle(self) -> None:
-        raise NotImplementedError
-
-
-@dataclass
-class DoorToggled(DoorWebhookResponse):
-
-    async def door_status(self) -> str | None:
-        return str(self.payload.get("door_status", "")).strip().lower()
-
-    async def handle(self) -> None:
-        door_status = await self.door_status()
-        if not door_status:
-            logger.warning("door_status missing in payload!")
-            return
-
-        channel_names = {
-            "open": "✅-lab-open",
-            "closed": "❌-lab-closed",
-        }
-        text = channel_names.get(door_status, "🤔-lab-maybe-open")
-        await self.bot.lab_door_status_channel.edit(name=text)
-
-
-@dataclass
 class GitHubWebhookResponse:
     github_data: dict[str, Any]
     # Bot
@@ -1182,11 +1144,6 @@ class Webhooks(commands.Cog):
             name = self.title_to_snake_case(subcls.__name__)
             self.ipc.route(name=name)(self.response_factory(subcls))
 
-        # Door webhook routes
-        for subcls in DoorWebhookResponse.__subclasses__():
-            name = self.title_to_snake_case(subcls.__name__)
-            self.ipc.route(name=name)(self.response_factory_door(subcls))
-
     def title_to_snake_case(self, title: str) -> str:
         return re.sub(r"(?<!^)(?=[A-Z])", "_", title).lower()
 
@@ -1220,29 +1177,6 @@ class Webhooks(commands.Cog):
                     datetime.timedelta(seconds=wh.delay_sec),
                     name=wh.concurrency_id,
                     coro=_post_coro,
-                )
-
-        return response
-
-    def response_factory_door(
-        self,
-        response_type: type[DoorWebhookResponse],
-    ) -> Callable[[Any, ClientPayload], Any]:
-        async def response(_: Any, payload: ClientPayload):
-            wh = response_type(payload.github_data, self.bot)
-
-            async def _handle_coro():
-                if await wh.ignore():
-                    return
-                await wh.handle()
-
-            if wh.delay_sec <= 0:
-                await _handle_coro()
-            else:
-                self.bot.tasks.run_in(
-                    datetime.timedelta(seconds=wh.delay_sec),
-                    name=wh.concurrency_id,
-                    coro=_handle_coro,
                 )
 
         return response
